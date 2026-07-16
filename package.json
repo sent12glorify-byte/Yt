@@ -1,0 +1,24 @@
+{
+  "name": "cosmic-web-explorer",
+  "version": "1.0.0",
+  "description": "Real-time universe explorer with spaceship navigation interface",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --dev",
+    "build": "echo 'Build script here'"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "node-fetch": "^2.6.11",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["space", "cosmos", "universe", "explorer", "3d", "spacex"],
+  "author": "sent12glorify-byte",
+  "license": "MIT"
+}
