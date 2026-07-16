@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iOS 1 - Universal Spaceship Explorer</title>
+    <style>
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            background: #000; 
+            font-family: 'Courier New', monospace; 
+        }
+        canvas { 
+            display: block; 
+            width: 100vw; 
+            height: 100vh; 
+        }
+        
+        /* Holographic HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 20;
+        }
+        
+        .corner-display {
+            position: absolute;
+            background: rgba(0, 20, 40, 0.7);
+            border: 2px solid #00ff88;
+            padding: 12px;
+            border-radius: 4px;
+            color: #00ff88;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ff88;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+        }
+        
+        #top-left { 
+            top: 20px; 
+            left: 20px;
+            min-width: 200px;
+        }
+        
+        #top-right { 
+            top: 20px; 
+            right: 20px;
+            min-width: 220px;
+        }
+        
+        #bottom-left { 
+            bottom: 20px; 
+            left: 20px;
+            min-width: 180px;
+        }
+        
+        #bottom-right { 
+            bottom: 20px; 
+            right: 20px;
+            min-width: 240px;
+        }
+        
+        .readout-label {
+            color: #00aa66;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.8;
+        }
+        
+        .readout-value {
+            color: #00ff88;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        
+        .divider {
+            border-top: 1px solid #00ff88;
+            margin: 8px 0;
+            opacity: 0.4;
+        }
+        
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+        }
+        
+        .crosshair-line {
+            position: absolute;
+            background: #00ff88;
+            opacity: 0.6;
+        }
+        
+        .crosshair-h {
+            width: 30px;
+            height: 1px;
+            top: 50%;
+            left: 5px;
+        }
+        
+        .crosshair-v {
+            width: 1px;
+            height: 30px;
+            top: 5px;
+            left: 50%;
+        }
+        
+        .crosshair-dot {
+            width: 4px;
+            height: 4px;
+            background: #00ff88;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px #00ff88;
+        }
+        
+        #speed-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            background: rgba(0, 20, 40, 0.7);
+            border: 2px solid #00ff88;
+            border-radius: 4px;
+            padding: 12px;
+            text-align: center;
+            color: #00ff88;
+            text-shadow: 0 0 10px #00ff88;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        
+        .speed-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(0, 50, 100, 0.5);
+            border: 1px solid #00ff88;
+            margin-top: 8px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .speed-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00ffff);
+            width: 0%;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 10px #00ff88;
+        }
+        
+        #controls-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 20, 40, 0.9);
+            border: 3px solid #00ff88;
+            padding: 30px;
+            border-radius: 8px;
+            color: #00ff88;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.8;
+            max-width: 500px;
+            text-shadow: 0 0 10px #00ff88;
+            z-index: 100;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        
+        #controls-info h1 {
+            font-size: 24px;
+            margin: 0 0 20px 0;
+            letter-spacing: 2px;
+            color: #00ffff;
+        }
+        
+        .control-item {
+            margin: 12px 0;
+            text-align: left;
+        }
+        
+        .control-key {
+            color: #00ffff;
+            font-weight: bold;
+        }
+        
+        #controls-info button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: rgba(0, 255, 136, 0.2);
+            border: 2px solid #00ff88;
+            color: #00ff88;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+        
+        #controls-info button:hover {
+            background: rgba(0, 255, 136, 0.4);
+            box-shadow: 0 0 15px #00ff88;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="glCanvas"></canvas>
+
+    <!-- HUD Display -->
+    <div id="hud">
+        <!-- Crosshair -->
+        <div id="crosshair">
+            <div class="crosshair-line crosshair-h"></div>
+            <div class="crosshair-line crosshair-v"></div>
+            <div class="crosshair-dot"></div>
+        </div>
+
+        <!-- Top Left: Ship Status -->
+        <div class="corner-display" id="top-left">
+            <div class="readout-label">iOS 1 STARSHIP</div>
+            <div class="readout-value">ONLINE</div>
+            <div class="divider"></div>
+            <div class="readout-label">Navigation</div>
+            <div class="readout-value" id="heading">HDG: 0.0°</div>
+            <div class="readout-value" id="pitch">PIT: 0.0°</div>
+        </div>
+
+        <!-- Top Right: Velocity & Engine -->
+        <div class="corner-display" id="top-right">
+            <div class="readout-label">Engine Status</div>
+            <div class="readout-value" id="engine-status">IDLE</div>
+            <div class="divider"></div>
+            <div class="readout-label">Velocity</div>
+            <div class="readout-value" id="velocity">0.00 c</div>
+            <div class="readout-label">Max Velocity</div>
+            <div class="readout-value" id="max-velocity">1.00 c</div>
+        </div>
+
+        <!-- Bottom Left: Coordinates -->
+        <div class="corner-display" id="bottom-left">
+            <div class="readout-label">Position</div>
+            <div class="readout-value" id="position">X: 0 Y: 0</div>
+        </div>
+
+        <!-- Bottom Right: System Info -->
+        <div class="corner-display" id="bottom-right">
+            <div class="readout-label">Universal Scanner</div>
+            <div class="readout-value" id="distance-to-anomaly">READY</div>
+            <div class="divider"></div>
+            <div class="readout-label">Temporal Fold</div>
+            <div class="readout-value" id="warp-status">STABLE</div>
+        </div>
+
+        <!-- Speed Indicator -->
+        <div id="speed-indicator">
+            <div class="readout-label">VELOCITY ENVELOPE</div>
+            <div class="speed-bar">
+                <div class="speed-fill" id="speed-fill"></div>
+            </div>
+            <div class="readout-value" id="speed-percent">0%</div>
+        </div>
+    </div>
+
+    <!-- Controls Info Overlay -->
+    <div id="controls-info">
+        <h1>iOS 1 EXPLORER</h1>
+        <div style="margin-bottom: 20px; color: #00ffff; font-size: 12px;">Universal Spaceship Navigation System</div>
+        
+        <div class="control-item">
+            <span class="control-key">ARROW KEYS / WASD:</span> Change direction
+        </div>
+        <div class="control-item">
+            <span class="control-key">HOLD SPACE:</span> Accelerate to light speed
+        </div>
+        <div class="control-item">
+            <span class="control-key">MOUSE MOVE:</span> Adjust view orientation
+        </div>
+        <div class="control-item">
+            <span class="control-key">CLICK / TAP:</span> Fire engines
+        </div>
+        
+        <div style="margin-top: 25px; font-size: 11px; color: #00aa66;">
+            Safe exploration mode enabled. No collision hazards. Navigate freely through the universe.
+        </div>
+        
+        <button onclick="startExploration()">BEGIN EXPLORATION ▶</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('glCanvas');
+        const gl = canvas.getContext('webgl', { antialias: true, precision: 'highp' });
+
+        if (!gl) {
+            alert('WebGL not supported. Please use a modern browser.');
+        }
+
+        let explorationStarted = false;
+
+        function startExploration() {
+            document.getElementById('controls-info').style.display = 'none';
+            explorationStarted = true;
+        }
+
+        // Advanced Vertex Shader
+        const vsSource = `
+            attribute vec2 position;
+            varying vec2 vUv;
+            void main() {
+                vUv = position * 0.5 + 0.5;
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        `;
+
+        // Advanced Fractal Fragment Shader - Deep Space Universe
+        const fsSource = `
+            precision highp float;
+            varying vec2 vUv;
+
+            uniform vec2 u_resolution;
+            uniform float u_time;
+            uniform float u_speed;
+            uniform float u_heading;
+            uniform float u_pitch;
+            uniform vec3 u_position;
+
+            // 3D Perlin-like noise
+            float random(vec3 p) {
+                return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+            }
+
+            float noise(vec3 p) {
+                vec3 i = floor(p);
+                vec3 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                
+                float n000 = random(i);
+                float n100 = random(i + vec3(1.0, 0.0, 0.0));
+                float n010 = random(i + vec3(0.0, 1.0, 0.0));
+                float n110 = random(i + vec3(1.0, 1.0, 0.0));
+                float n001 = random(i + vec3(0.0, 0.0, 1.0));
+                float n101 = random(i + vec3(1.0, 0.0, 1.0));
+                float n011 = random(i + vec3(0.0, 1.0, 1.0));
+                float n111 = random(i + vec3(1.0, 1.0, 1.0));
+                
+                float nx00 = mix(n000, n100, f.x);
+                float nx10 = mix(n010, n110, f.x);
+                float nx0 = mix(nx00, nx10, f.y);
+                
+                float nx01 = mix(n001, n101, f.x);
+                float nx11 = mix(n011, n111, f.x);
+                float nx1 = mix(nx01, nx11, f.y);
+                
+                return mix(nx0, nx1, f.z);
+            }
+
+            // Fractal Brownian Motion for nebulae
+            float fbm(vec3 p) {
+                float value = 0.0;
+                float amplitude = 0.5;
+                float frequency = 1.0;
+                
+                for(int i = 0; i < 6; i++) {
+                    value += amplitude * noise(p * frequency);
+                    frequency *= 2.0;
+                    amplitude *= 0.5;
+                }
+                return value;
+            }
+
+            // Star field generation
+            float starField(vec3 rayDir) {
+                vec3 starPos = floor(rayDir * 100.0);
+                float star = random(starPos);
+                return step(0.999, star) * pow(star, 4.0);
+            }
+
+            // Nebula rendering
+            vec3 nebula(vec3 rayDir, float time) {
+                vec3 nColor = vec3(0.0);
+                
+                // Red nebula
+                float red = fbm(rayDir * 2.0 + vec3(time * 0.02, 0.0, 0.0));
+                nColor += vec3(1.0, 0.2, 0.3) * red * 0.4;
+                
+                // Blue nebula
+                float blue = fbm(rayDir * 2.5 + vec3(0.0, time * 0.015, 0.0));
+                nColor += vec3(0.3, 0.5, 1.0) * blue * 0.3;
+                
+                // Purple nebula
+                float purple = fbm(rayDir * 3.0 + vec3(time * 0.01, time * 0.01, 0.0));
+                nColor += vec3(0.8, 0.3, 1.0) * purple * 0.2;
+                
+                return nColor;
+            }
+
+            void main() {
+                vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / u_resolution.y;
+                
+                // Rotation based on heading and pitch
+                float cosH = cos(u_heading);
+                float sinH = sin(u_heading);
+                float cosP = cos(u_pitch);
+                float sinP = sin(u_pitch);
+                
+                // Rotate UV based on ship orientation
+                vec2 rotUv = vec2(
+                    uv.x * cosH - uv.y * sinH,
+                    uv.x * sinH + uv.y * cosH
+                );
+                
+                rotUv.y = rotUv.y * cosP + rotUv.y * sinP;
+                
+                // Create 3D ray direction
+                vec3 rayDir = normalize(vec3(rotUv, 1.0));
+                
+                // Add position offset for movement
+                vec3 samplePos = rayDir + u_position * 0.1;
+                
+                // Render scene
+                vec3 finalColor = vec3(0.0);
+                
+                // Stars
+                float stars = starField(samplePos);
+                finalColor += vec3(1.0) * stars;
+                
+                // Nebulae
+                vec3 neb = nebula(samplePos, u_time);
+                finalColor += neb;
+                
+                // Speed effect - tunnel vision at high speeds
+                float speedEffect = min(u_speed * 0.3, 1.0);
+                float distFromCenter = length(uv);
+                float vignette = 1.0 - distFromCenter * speedEffect;
+                finalColor *= mix(1.0, vignette, speedEffect * 0.5);
+                
+                // Hyper-drive warp effect at high speed
+                if(u_speed > 0.7) {
+                    float warpStretch = fbm(rayDir * 5.0 + u_position);
+                    finalColor += vec3(0.0, 1.0, 1.0) * warpStretch * (u_speed - 0.7) * 0.5;
+                }
+                
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error(gl.getProgramInfoLog(program));
+        }
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1,  1, -1, -1,  1,
+            -1,  1,  1, -1,  1,  1,
+        ]), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, 'position');
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        gl.useProgram(program);
+
+        const uniforms = {
+            resolution: gl.getUniformLocation(program, 'u_resolution'),
+            time: gl.getUniformLocation(program, 'u_time'),
+            speed: gl.getUniformLocation(program, 'u_speed'),
+            heading: gl.getUniformLocation(program, 'u_heading'),
+            pitch: gl.getUniformLocation(program, 'u_pitch'),
+            position: gl.getUniformLocation(program, 'u_position')
+        };
+
+        // Spaceship State
+        const ship = {
+            heading: 0.0,  // Yaw (left/right)
+            pitch: 0.0,    // Up/down
+            speed: 0.0,    // 0 to 1 (light speed)
+            posX: 0.0,
+            posY: 0.0,
+            posZ: 0.0,
+            acceleration: 0.02,
+            deceleration: 0.015,
+            maxSpeed: 1.0,
+            headingSpeed: 0.03,
+            pitchSpeed: 0.03
+        };
+
+        const controls = {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            accelerate: false,
+            pitchUp: false,
+            pitchDown: false
+        };
+
+        // Keyboard controls
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'arrowup' || key === 'w') controls.up = true;
+            if (key === 'arrowdown' || key === 's') controls.down = true;
+            if (key === 'arrowleft' || key === 'a') controls.left = true;
+            if (key === 'arrowright' || key === 'd') controls.right = true;
+            if (key === ' ') { controls.accelerate = true; e.preventDefault(); }
+            if (key === 'q') controls.pitchUp = true;
+            if (key === 'e') controls.pitchDown = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'arrowup' || key === 'w') controls.up = false;
+            if (key === 'arrowdown' || key === 's') controls.down = false;
+            if (key === 'arrowleft' || key === 'a') controls.left = false;
+            if (key === 'arrowright' || key === 'd') controls.right = false;
+            if (key === ' ') controls.accelerate = false;
+            if (key === 'q') controls.pitchUp = false;
+            if (key === 'e') controls.pitchDown = false;
+        });
+
+        // Mouse controls for fine adjustment
+        window.addEventListener('mousemove', (e) => {
+            if (!explorationStarted) return;
+            const moveX = (e.movementX || 0) * 0.001;
+            const moveY = (e.movementY || 0) * 0.001;
+            ship.heading += moveX;
+            ship.pitch += moveY;
+            ship.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, ship.pitch));
+        });
+
+        window.addEventListener('click', () => {
+            if (!explorationStarted) startExploration();
+        });
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Update HUD displays
+        function updateHUD() {
+            document.getElementById('heading').textContent = `HDG: ${(ship.heading * 57.2958).toFixed(1)}°`;
+            document.getElementById('pitch').textContent = `PIT: ${(ship.pitch * 57.2958).toFixed(1)}°`;
+            document.getElementById('velocity').textContent = `${(ship.speed * 1.0).toFixed(2)} c`;
+            document.getElementById('position').textContent = `X: ${ship.posX.toFixed(0)} Y: ${ship.posY.toFixed(0)}`;
+            document.getElementById('speed-percent').textContent = `${(ship.speed * 100).toFixed(0)}%`;
+            document.getElementById('speed-fill').style.width = (ship.speed * 100) + '%';
+            
+            if (ship.speed > 0.7) {
+                document.getElementById('engine-status').textContent = 'WARP DRIVE';
+                document.getElementById('warp-status').textContent = 'ENGAGED ⚡';
+            } else if (ship.speed > 0) {
+                document.getElementById('engine-status').textContent = 'CRUISE';
+                document.getElementById('warp-status').textContent = 'STANDBY';
+            } else {
+                document.getElementById('engine-status').textContent = 'IDLE';
+                document.getElementById('warp-status').textContent = 'STABLE';
+            }
+        }
+
+        function render(time) {
+            time *= 0.001;
+
+            if (!explorationStarted) {
+                requestAnimationFrame(render);
+                return;
+            }
+
+            // Update heading and pitch
+            if (controls.left) ship.heading -= ship.headingSpeed;
+            if (controls.right) ship.heading += ship.headingSpeed;
+            if (controls.pitchUp) ship.pitch += ship.pitchSpeed;
+            if (controls.pitchDown) ship.pitch -= ship.pitchSpeed;
+
+            // Clamp pitch
+            ship.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, ship.pitch));
+
+            // Acceleration/Deceleration
+            if (controls.accelerate) {
+                ship.speed = Math.min(ship.maxSpeed, ship.speed + ship.acceleration);
+            } else {
+                ship.speed = Math.max(0, ship.speed - ship.deceleration);
+            }
+
+            // Movement in heading/pitch direction
+            const moveForward = ship.speed * 0.15;
+            ship.posX += Math.sin(ship.heading) * moveForward;
+            ship.posY += Math.sin(ship.pitch) * moveForward;
+            ship.posZ += Math.cos(ship.heading) * moveForward;
+
+            // Update uniforms
+            gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+            gl.uniform1f(uniforms.time, time);
+            gl.uniform1f(uniforms.speed, ship.speed);
+            gl.uniform1f(uniforms.heading, ship.heading);
+            gl.uniform1f(uniforms.pitch, ship.pitch);
+            gl.uniform3f(uniforms.position, ship.posX, ship.posY, ship.posZ);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            updateHUD();
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
