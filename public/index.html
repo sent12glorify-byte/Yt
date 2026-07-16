@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Web Explorer - Spaceship Navigation System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <!-- Spaceship HUD -->
+    <div id="hud" class="hud">
+        <div class="hud-section top-left">
+            <div class="hud-title">SPACESHIP NAV SYSTEM v1.0</div>
+            <div class="hud-data">
+                <div>CURRENT LOCATION: <span id="location">Earth</span></div>
+                <div>TIME: <span id="time">2026-07-16 05:11 AM UTC</span></div>
+                <div>DISTANCE FROM SUN: <span id="sun-distance">149.6M km</span></div>
+            </div>
+        </div>
+
+        <div class="hud-section top-right">
+            <div class="hud-title">COSMIC OBJECTS</div>
+            <div class="object-list" id="object-list">
+                <div class="object-item active">☉ Sun - 149.6M km</div>
+                <div class="object-item">🌍 Earth - Current Position</div>
+                <div class="object-item">🌙 Moon - 384,400 km</div>
+            </div>
+        </div>
+
+        <div class="hud-section bottom-left">
+            <div class="hud-title">CAMERA CONTROLS</div>
+            <div class="controls">
+                <div>W/A/S/D - Move</div>
+                <div>SPACE - Up | CTRL - Down</div>
+                <div>Mouse - Look Around</div>
+                <div>Mouse Wheel - Zoom</div>
+            </div>
+        </div>
+
+        <div class="hud-section bottom-right">
+            <div class="hud-title">TELEMETRY</div>
+            <div id="telemetry">
+                <div>FPS: <span id="fps">0</span></div>
+                <div>CAMERA POS: <span id="camera-pos">0, 0, 0</span></div>
+                <div>ZOOM: <span id="zoom">1.0x</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Panel -->
+    <div id="data-panel" class="data-panel">
+        <button id="toggle-panel" class="toggle-btn">≡</button>
+        <div class="panel-content">
+            <h3>COSMIC DATA</h3>
+            <div id="data-content"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="spaceship.js"></script>
+</body>
+</html>
