@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f5fb">
+  <meta name="description" content="A little imagination. Infinite possibilities. Sculpt a cloud, build an app, and prepare it for the world with Cloudy.">
+  <title>Cloudy — A space for possibility</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23775bea'/%3E%3Cpath d='M18 43a10 10 0 0 1-1-20 15 15 0 0 1 28-2 11 11 0 0 1 2 22Z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <svg class="icon-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M6.5 18a4.5 4.5 0 0 1-.7-8.95A6.5 6.5 0 0 1 18 7.5a5.25 5.25 0 0 1 .5 10.5Z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/><path d="m20 2 .7 1.3L22 4l-1.3.7L20 6l-.7-1.3L18 4l1.3-.7Z"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M12 6.5h5M12 17.5h5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 8.5a2.5 2.5 0 1 1 4 2c-1.5 1-1.5 1.5-1.5 2.5M12 17h.01"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 7h4l2-3h4l2 3h4a1 1 0 0 1 1 1v11H3V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="4"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h5m4 0h7M4 17h9m4 0h3"/><circle cx="11" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14a8.5 8.5 0 0 1-10-10A8.5 8.5 0 1 0 20 14Z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L10 14M11 3H3v18h18v-8"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></symbol>
+  </svg>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Workspace navigation">
+      <a class="brand" href="./"><span class="brand-mark"><svg><use href="#i-cloud"/></svg></span><span>cloudy<span class="brand-dot">.</span></span><span class="beta">BETA</span></a>
+      <div class="workspace-switch"><span class="workspace-avatar">C</span><span><strong>My workspace</strong><small>A space for possibility</small></span><span class="chevron">⌄</span></div>
+      <p class="nav-label">WORKSPACE</p>
+      <nav class="nav-list">
+        <button class="nav-item active" data-view="studio" aria-current="page"><svg><use href="#i-cloud"/></svg>Cloud studio<span class="nav-dot"></span></button>
+        <button class="nav-item" data-view="creations"><svg><use href="#i-grid"/></svg>My creations<span class="count" id="creation-count">0</span></button>
+        <button class="nav-item" data-view="infrastructure"><svg><use href="#i-server"/></svg>Infrastructure</button>
+      </nav>
+      <div class="sidebar-card"><span class="tiny-stars">✧</span><strong>From a thought<br>to a whole new world.</strong><p>Your next big thing is<br>one prompt away.</p><button id="sidebar-create">Let's create <svg><use href="#i-arrow"/></svg></button></div>
+      <div class="sidebar-bottom"><button class="nav-item" id="help-button"><svg><use href="#i-help"/></svg>How it works</button><div class="profile"><span class="profile-icon"><svg><use href="#i-cloud"/></svg></span><span><strong>Personal workspace</strong><small><i class="status-dot"></i>Local environment</small></span></div></div>
+    </aside>
+    <div class="sidebar-overlay" id="sidebar-overlay" hidden></div>
+    <div class="main-shell">
+      <header class="topbar"><button class="icon-button mobile-menu" id="menu-button" aria-label="Open navigation" aria-expanded="false"><svg><use href="#i-menu"/></svg></button><div class="breadcrumb">Workspace <span>/</span> <strong id="breadcrumb-current">Cloud studio</strong></div><div class="topbar-actions"><button class="command-button" id="command-button">Quick create <kbd>⌘ K</kbd></button><button class="primary-button small" id="new-creation"><svg><use href="#i-plus"/></svg>New creation</button></div></header>
+      <main>
+        <section id="studio-view" class="view">
+          <div class="page-heading"><div><div class="eyebrow"><span></span> YOUR IMAGINATION, UNLIMITED</div><h1>What will your cloud become?</h1><p>Dream it. Shape it. Build something magnificent.</p></div><span class="engine-badge" id="engine-badge"><i class="status-dot"></i>Local creation engine</span></div>
+          <div class="studio-card">
+            <div class="sky" id="sky" data-atmosphere="day">
+              <div class="sky-glow"></div><div class="sky-orbit orbit-one"></div><div class="sky-orbit orbit-two"></div>
+              <div class="stage-top"><span class="live-pill"><i></i> A SPACE FOR POSSIBILITY</span><div class="stage-tools"><button class="glass-button" id="motion-button" aria-label="Pause cloud animation" aria-pressed="false" title="Pause animation"><svg><use href="#i-pause"/></svg></button><button class="glass-button" id="capture-button" aria-label="Save cloud image" title="Save cloud image"><svg><use href="#i-camera"/></svg></button><button class="glass-button" id="controls-button" aria-label="Cloud controls" title="Cloud controls"><svg><use href="#i-sliders"/></svg></button></div></div>
+              <canvas id="cloud-canvas" role="img" aria-label="An animated, morphing cloud sculpture"></canvas>
+              <div class="stage-bottom"><div class="cloud-caption"><span id="shape-name">CUMULUS 001</span><p id="shape-description">A little cloud. A world of potential.</p></div><div class="atmosphere-tabs" role="group" aria-label="Atmosphere"><button data-atmosphere="day" class="selected" aria-pressed="true"><svg><use href="#i-sun"/></svg>Daylight</button><button data-atmosphere="sunset" aria-pressed="false">Sunset</button><button data-atmosphere="night" aria-pressed="false"><svg><use href="#i-moon"/></svg>Night</button></div></div>
+            </div>
+            <form class="prompt-form" id="prompt-form"><label for="prompt" class="prompt-label"><svg><use href="#i-spark"/></svg>Big ideas begin with a few words.</label><div class="prompt-row"><textarea id="prompt" rows="2" maxlength="2000" placeholder="A cloud dragon, a beautiful website, your next big idea…" required></textarea><button class="primary-button create-button" id="morph-button" type="submit"><span>Make it happen</span><svg><use href="#i-arrow"/></svg></button></div><div class="composer-footer"><span id="prompt-status" role="status">Your cloud can become a sculpture, an app, or a place to host it.</span><kbd>↵ Enter to create</kbd></div></form>
+          </div>
+          <div class="inspiration-row"><span>A spark of inspiration</span><div class="suggestions"><button data-prompt="Sculpt a majestic cloud dragon">✧ A cloud dragon</button><button data-prompt="Build a beautiful task board">▦ A task board</button><button data-prompt="Create a minimalist portfolio website">↗ My portfolio</button><button data-prompt="Create a hosting plan for my next app">☁ Host an idea</button></div></div>
+          <div class="section-heading"><div><h2>A little cloud. Endless possibilities.</h2><p>One canvas for everything you want to create.</p></div><span class="subtle-label">MADE OF IMAGINATION</span></div>
+          <div class="possibility-grid"><button class="possibility-card sculpture-card" data-prompt="Turn the cloud into a heart"><div class="card-art"><span class="cloud-heart">♡</span><span class="art-star star-one">✦</span><span class="art-star star-two">✧</span></div><div><span class="card-category">IMAGINE</span><h3>Give an idea a shape <svg><use href="#i-arrow"/></svg></h3><p>Watch your words turn into cloud art.</p></div></button><button class="possibility-card app-card" data-prompt="Build a productivity dashboard"><div class="card-art"><div class="mini-dashboard"><div class="mini-sidebar"></div><div class="mini-content"><i></i><div><b></b><b></b><b></b></div><em></em></div></div></div><div><span class="card-category">BUILD</span><h3>Make something real <svg><use href="#i-arrow"/></svg></h3><p>Go from a prompt to a working app.</p></div></button><button class="possibility-card hosting-card" data-view="infrastructure"><div class="card-art"><div class="mini-server"><svg><use href="#i-server"/></svg><span class="server-spark">✧</span></div><span class="connection-line"></span></div><div><span class="card-category">LAUNCH</span><h3>Find your place in the sky <svg><use href="#i-arrow"/></svg></h3><p>Package your creation for the cloud.</p></div></button></div>
+          <footer class="page-footer"><span><svg><use href="#i-cloud"/></svg> A space for possibility.</span><span>Imagined by you. Made with Cloudy.</span></footer>
+        </section>
+        <section id="creations-view" class="view" hidden><div class="page-heading"><div><div class="eyebrow"><span></span> FROM IDEA TO REALITY</div><h1>Your little universe.</h1><p>Every creation starts with a thought. Keep yours here.</p></div><button class="primary-button" data-view="studio"><svg><use href="#i-plus"/></svg>Create something</button></div><div id="projects-grid" class="projects-grid"></div><div id="projects-empty" class="empty-state"><span class="empty-cloud"><svg><use href="#i-cloud"/></svg></span><h2>Your first idea is waiting.</h2><p>Ask Cloudy to build a website, task board, or dashboard.<br>Your creations will live right here.</p><button class="primary-button" data-view="studio">Meet your cloud <svg><use href="#i-arrow"/></svg></button></div></section>
+        <section id="infrastructure-view" class="view" hidden><div class="page-heading"><div><div class="eyebrow"><span></span> A PLACE TO GROW</div><h1>Ready for a bigger sky.</h1><p>From a working preview to a deployable cloud app.</p></div><span class="engine-badge"><i class="status-dot"></i>Local runtime</span></div><div class="infra-stats"><article><span>Runtime</span><strong>Node.js</strong><small>Running in your workspace</small></article><article><span>Your creations</span><strong id="infra-project-count">0</strong><small>Saved to this environment</small></article><article><span>Remote hosting</span><strong>Not connected</strong><small>Export a bundle to your provider</small></article></div><div class="hosting-panel"><div class="hosting-illustration"><svg><use href="#i-cloud"/></svg><span>↑</span><svg><use href="#i-server"/></svg></div><div class="hosting-content"><span class="card-category">PACK YOUR POSSIBILITIES</span><h2>Your creation. Any cloud.</h2><p>Download a ready-to-run app with a Dockerfile, a Node server, and deployment instructions. Keep your source. Choose your own hosting.</p><label for="hosting-project">Choose a creation</label><select id="hosting-project"><option value="">Build a creation first</option></select><button class="primary-button" id="hosting-export" disabled><svg><use href="#i-download"/></svg>Download deployment bundle</button><small class="hosting-note">A bundle prepares your app for hosting. It does not provision a remote server.</small></div></div><div class="deployment-steps"><article><span>01</span><h3>Create</h3><p>Describe an idea and preview your working app.</p></article><article><span>02</span><h3>Package</h3><p>Export source and a container-ready configuration.</p></article><article><span>03</span><h3>Launch</h3><p>Deploy the bundle with your chosen cloud provider.</p></article></div></section>
+      </main>
+    </div>
+  </div>
+  <dialog id="controls-dialog" class="small-dialog"><form method="dialog" class="dialog-heading"><h2>Make the sky yours.</h2><button class="icon-button" aria-label="Close controls"><svg><use href="#i-close"/></svg></button></form><div class="dialog-body"><label for="shape-select">Cloud shape</label><select id="shape-select"><option value="cloud">Cumulus cloud</option><option value="heart">Heart</option><option value="planet">Planet</option><option value="galaxy">Galaxy</option><option value="mountain">Mountain</option><option value="castle">Castle</option><option value="tree">Tree</option><option value="dragon">Dragon</option></select><label for="wind">A little breeze <output id="wind-value">25%</output></label><input type="range" id="wind" min="0" max="100" value="25"><p class="dialog-note">Move your pointer across the sky to explore your cloud from a new angle.</p></div></dialog>
+  <dialog id="help-dialog" class="small-dialog"><form method="dialog" class="dialog-heading"><h2>A world in a few words.</h2><button class="icon-button" aria-label="Close help"><svg><use href="#i-close"/></svg></button></form><div class="dialog-body help-body"><p><strong>Imagine.</strong> Ask for a cloud heart, dragon, castle, galaxy, or another cloud sculpture.</p><p><strong>Build.</strong> Ask for a task board, dashboard, portfolio, or website. Open the creation to try it.</p><p><strong>Launch.</strong> Export an app with its hosting configuration from Infrastructure.</p><div class="help-notice">Cloudy starts with a local creation engine. An optional server-side AI connection enables more flexible app generation. Your workspace is local; remote hosting needs your chosen provider.</div></div></dialog>
+  <dialog id="preview-dialog" class="preview-dialog"><div class="dialog-heading"><div><span class="card-category">YOUR CREATION</span><h2 id="preview-title">App preview</h2></div><div class="preview-actions"><button class="secondary-button" id="preview-export"><svg><use href="#i-download"/></svg><span>Export</span></button><form method="dialog"><button class="icon-button" aria-label="Close preview"><svg><use href="#i-close"/></svg></button></form></div></div><iframe id="preview-frame" title="Generated app preview" sandbox="allow-scripts allow-forms"></iframe></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <div class="content-policy-note">Cloudy is a family-friendly creative space. Pornography, fabricated harmful accusations, and targeted harassment campaigns are not allowed.</div>
+</body>
+</html>

@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { createCloudyRouter } from './cloudy-platform.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,8 +15,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
+app.get('/', (req, res) => res.redirect('/cloud/'));
+app.use('/cloud', express.static(`${__dirname}/cloud`));
 app.use(express.static('public'));
 app.use(express.json());
+app.use('/api/cloudy', createCloudyRouter());
 
 // Cosmic data aggregator
 class CosmicDataAggregator {
@@ -164,6 +168,7 @@ app.get('/api/nasa/apod', async (req, res) => {
 });
 
 app.listen(PORT, () => {
+  console.log(`☁ Cloudy platform running on port ${PORT} — /cloud/`);
   console.log(`🚀 Cosmic Web Explorer running on http://localhost:${PORT}`);
   console.log(`📍 Starting position: Earth (2026-07-16 05:11 AM UTC)`);
   console.log(`🌙 Moon position: ${aggregator.moonPosition.x.toFixed(2)}, ${aggregator.moonPosition.z.toFixed(2)}`);
