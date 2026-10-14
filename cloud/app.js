@@ -3,8 +3,9 @@ import CloudRenderer from './renderer.js';
 const $ = (selector) => document.querySelector(selector);
 const apiBase = new URL('../api/cloudy/', location.href);
 const renderer = new CloudRenderer($('#cloud-canvas'));
-const state = { projects: [], currentProject: null, busy: false, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, shape: 'cloud', atmosphere: 'day', view: 'studio' };
+const state = { projects: [], currentProject: null, busy: false, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, shape: 'cloud', atmosphere: 'night', view: 'studio', custom: null, journal: [], recording: null, lastVideo: null };
 let toastTimer;
+try { const stored = JSON.parse(localStorage.getItem('cloudy-morph-journal') || '[]'); if (Array.isArray(stored)) state.journal = stored.filter(entry => entry && typeof entry.id === 'string' && typeof entry.prompt === 'string'); } catch {}
 
 function toast(message) {
   clearTimeout(toastTimer);
@@ -25,16 +26,18 @@ async function api(path, options = {}) {
 }
 
 function savePreferences() {
-  try { localStorage.setItem('cloudy-sky', JSON.stringify({ shape: state.shape, atmosphere: state.atmosphere, motion: state.motion, wind: Number($('#wind').value) })); } catch {}
+  try { localStorage.setItem('cloudy-sky', JSON.stringify({ shape: state.shape, custom: state.custom, atmosphere: state.atmosphere, motion: state.motion, wind: Number($('#wind').value), detail: Number($('#detail').value), glitter: $('#glitter').checked })); } catch {}
 }
 
-function setShape(shape, description) {
-  state.shape = renderer.setShape(shape);
+function setShape(shape, description, custom) {
+  state.shape = shape === 'custom' && (custom || state.custom) ? renderer.setCustomShape(custom || state.custom) : renderer.setShape(shape);
+  state.custom = state.shape === 'custom' ? { ...renderer.customShape } : null;
+  if (state.custom) { $('#custom-shape-option').hidden = false; $('#custom-shape-option').textContent = state.custom.label || 'Custom form'; }
   $('#shape-select').value = state.shape;
-  $('#shape-name').textContent = state.shape === 'earth' ? 'EARTH · OUR HOME' : state.shape === 'cloud' ? 'CUMULUS 001' : `${state.shape.toUpperCase()} IN THE CLOUDS`;
-  $('#shape-description').textContent = state.shape === 'earth' ? 'Ocean, land, and cloud. An illustrated globe.' : description || 'Your imagination, taking shape.';
+  $('#shape-name').textContent = state.custom ? state.custom.label.toUpperCase() : state.shape === 'earth' ? 'EARTH · OUR HOME' : state.shape === 'cloud' ? 'CUMULUS 001' : `${state.shape.toUpperCase()} IN THE CLOUDS`;
+  $('#shape-description').textContent = state.custom ? state.custom.kind === 'text' ? 'Your words, formed from cloud pixels.' : 'A silhouette, shimmering into life.' : state.shape === 'earth' ? 'Ocean, land, and cloud. An illustrated globe.' : description || 'Your imagination, taking shape.';
   $('#earth-open-inline').hidden = state.shape !== 'earth';
-  $('#cloud-canvas').setAttribute('aria-label', state.shape === 'earth' ? 'An illustrated Earth globe with blue oceans, green continents, and white clouds' : `An animated cloud sculpture in the shape of a ${state.shape}`);
+  $('#cloud-canvas').setAttribute('aria-label', state.custom ? `A shimmering cloud ${state.custom.kind === 'text' ? 'word sculpture' : 'silhouette'}: ${state.custom.label}` : state.shape === 'earth' ? 'An illustrated Earth globe with blue oceans, green continents, and white clouds' : `An animated cloud sculpture in the shape of a ${state.shape}`);
   savePreferences();
 }
 
@@ -43,6 +46,7 @@ function setAtmosphere(atmosphere) {
   state.atmosphere = atmosphere;
   renderer.setAtmosphere(atmosphere);
   $('#sky').dataset.atmosphere = atmosphere;
+  document.body.dataset.atmosphere = atmosphere;
   document.querySelectorAll('[data-atmosphere]').forEach((button) => {
     if (button.tagName !== 'BUTTON') return;
     const selected = button.dataset.atmosphere === atmosphere;
@@ -71,7 +75,10 @@ function closeNavigation() {
 
 function setView(view) {
   if (!['studio', 'creations', 'infrastructure'].includes(view)) return;
+  if (view !== 'studio' && state.recording) stopRecording();
   state.view = view;
+  document.body.classList.toggle('immersive-studio', view === 'studio');
+  document.body.classList.remove('scene-focus');
   document.querySelectorAll('main > .view').forEach((section) => { section.hidden = section.id !== `${view}-view`; });
   document.querySelectorAll('.nav-list [data-view]').forEach((button) => {
     const selected = button.dataset.view === view;
@@ -180,6 +187,146 @@ function openEarthExplorer() {
   $('#earth-dialog').showModal();
 }
 
+function sceneSettings() {
+  return { atmosphere: state.atmosphere, wind: Number($('#wind').value), detail: Number($('#detail').value), glitter: $('#glitter').checked, motion: state.motion, cloudParticles: renderer.particles.length, glimmerParticles: renderer.glitterParticles.length, canvas: { width: renderer.canvas.width, height: renderer.canvas.height }, viewport: { width: innerWidth, height: innerHeight } };
+}
+
+function persistJournal() {
+  try { localStorage.setItem('cloudy-morph-journal', JSON.stringify(state.journal)); } catch { toast('Browser storage is full. Export your journal to keep a copy.'); }
+}
+
+function addMorphEntry(prompt, result) {
+  const entry = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2), createdAt: new Date().toISOString(), prompt, title: result.title || state.custom?.label || state.shape, shape: result.shape || state.shape, custom: result.custom || state.custom, intent: result.intent || 'sculpture', source: result.source || 'local', message: result.message || $('#shape-description').textContent, project: result.project ? { id: result.project.id, title: result.project.title, type: result.project.type } : undefined, settings: sceneSettings(), notes: '', recordings: [] };
+  state.journal.push(entry);
+  persistJournal();
+  return entry;
+}
+
+function ensureCurrentEntry() {
+  const last = state.journal.at(-1);
+  if (last?.shape === state.shape && (state.shape !== 'custom' || last.custom?.value === state.custom?.value)) return last;
+  return addMorphEntry(state.custom?.label || state.shape, { shape: state.shape, title: state.custom?.label || `${state.shape[0].toUpperCase()}${state.shape.slice(1)} sculpture`, custom: state.custom });
+}
+
+function selectedEntry() { return state.journal.find(entry => entry.id === $('#document-entry').value) || ensureCurrentEntry(); }
+function markdownDocument(entry) {
+  const recordings = (entry.recordings || []).map(video => `- ${video.filename}: ${(video.durationMs / 1000).toFixed(1)} seconds, ${video.width} × ${video.height}, ${video.mimeType}, ${video.bytes} bytes`).join('\n') || 'No recordings attached to this morph.';
+  const images = (entry.images || []).map(image => `- ${image.filename}: ${image.width} × ${image.height}, ${image.bytes} bytes, saved ${image.savedAt}`).join('\n') || 'No images saved for this morph.';
+  return `# ${entry.title}\n\nCreated: ${entry.createdAt}\nRecord: ${entry.id}\n\n## Request\n\n${entry.prompt}\n\n## Result\n\n${entry.message}\n\nShape: ${entry.shape}\nIntent: ${entry.intent}\nCreation engine: ${entry.source}\n${entry.custom ? `Custom form: ${entry.custom.kind} — ${entry.custom.value}\n` : ''}${entry.project ? `App: ${entry.project.title} (${entry.project.id})\n` : ''}\n## Scene settings at creation\n\n${JSON.stringify(entry.settings, null, 2)}\n\n${entry.documentedSettings ? `## Scene when documented\n\n${JSON.stringify(entry.documentedSettings, null, 2)}\n\n` : ''}## Observations\n\n${entry.notes || 'No observations added.'}\n\n## Image records\n\n${images}\n\n## Video records\n\n${recordings}\n\nCloudy renders illustrated cloud, glyph, and word sculptures. JPEG glimmers are visual pixels, not physical nanotechnology. Video captures the canvas artwork without sound or interface controls.\n`;
+}
+
+function renderDocument() {
+  const entry = selectedEntry();
+  $('#document-notes').value = entry.notes || '';
+  $('#document-text').textContent = markdownDocument(entry);
+  $('#video-download').hidden = !state.lastVideo;
+}
+
+function openDocument() {
+  closeNavigation();
+  const current = ensureCurrentEntry();
+  current.documentedSettings = sceneSettings(); persistJournal();
+  $('#document-entry').replaceChildren(...[...state.journal].reverse().map(entry => new Option(`${entry.title} · ${new Date(entry.createdAt).toLocaleString()}`, entry.id)));
+  $('#document-entry').value = current.id;
+  renderDocument();
+  $('#document-dialog').showModal();
+}
+
+function filenameFor(value) { return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'cloudy-morph'; }
+
+function paintScene(context, width, height) {
+  const gradient = context.createLinearGradient(0, 0, width, height);
+  const colors = { day: ['#b9c8ec', '#d1cff0', '#efe1df'], sunset: ['#8285c4', '#c39ac5', '#efbdb0'], night: ['#151b3d', '#39305c', '#655080'] }[state.atmosphere];
+  gradient.addColorStop(0, colors[0]); gradient.addColorStop(.5, colors[1]); gradient.addColorStop(1, colors[2]);
+  context.fillStyle = gradient; context.fillRect(0, 0, width, height);
+  const scale = Math.min(width / renderer.canvas.width, height / renderer.canvas.height);
+  const drawWidth = renderer.canvas.width * scale, drawHeight = renderer.canvas.height * scale;
+  context.drawImage(renderer.canvas, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+}
+
+function saveSceneImage() {
+  const canvas = document.createElement('canvas');
+  canvas.width = renderer.canvas.width; canvas.height = renderer.canvas.height;
+  paintScene(canvas.getContext('2d'), canvas.width, canvas.height);
+  canvas.toBlob(blob => {
+    if (!blob) return;
+    const filename = `cloudy-${filenameFor(state.custom?.label || state.shape)}.png`;
+    const entry = ensureCurrentEntry(); entry.images ||= [];
+    entry.images.push({ filename, savedAt: new Date().toISOString(), width: canvas.width, height: canvas.height, bytes: blob.size });
+    persistJournal(); downloadBlob(blob, filename); toast('Your full-resolution cloud image is saved.');
+  }, 'image/png');
+}
+
+function recorderType() {
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return null;
+  return ['video/webm;codecs=vp8', 'video/webm;codecs=vp9', 'video/webm', 'video/mp4'].find(type => MediaRecorder.isTypeSupported(type)) || '';
+}
+
+function stopRecording() {
+  if (state.recording?.recorder.state === 'recording') {
+    $('#record-button').disabled = true;
+    state.recording.recorder.stop();
+  }
+}
+
+function toggleRecording() {
+  if (state.recording) { stopRecording(); return; }
+  const mimeType = recorderType();
+  if (mimeType === null) { toast('Video recording is unavailable in this browser. You can still save PNG images and documents.'); return; }
+  const canvas = document.createElement('canvas');
+  const ratio = Math.min(1, 1920 / renderer.canvas.width, 1080 / renderer.canvas.height);
+  canvas.width = Math.max(2, Math.round(renderer.canvas.width * ratio / 2) * 2);
+  canvas.height = Math.max(2, Math.round(renderer.canvas.height * ratio / 2) * 2);
+  const context = canvas.getContext('2d');
+  let frameId, timer, stream, recorder;
+  const chunks = [];
+  const started = performance.now();
+  const entry = ensureCurrentEntry();
+  const recording = { entryIds: new Set([entry.id]) };
+  const cleanup = () => {
+    cancelAnimationFrame(frameId); clearInterval(timer); stream?.getTracks().forEach(track => track.stop());
+    state.recording = null;
+    $('#record-button').disabled = false;
+    $('#record-button').classList.remove('is-recording');
+    $('#record-button').setAttribute('aria-label', 'Start cloud video recording');
+    $('#record-button').querySelector('use').setAttribute('href', '#i-record');
+    $('#record-button span').textContent = 'Record';
+    $('#recording-badge').hidden = true;
+  };
+  try {
+    const composite = () => { paintScene(context, canvas.width, canvas.height); frameId = requestAnimationFrame(composite); };
+    composite();
+    stream = canvas.captureStream(30);
+    recorder = new MediaRecorder(stream, { ...(mimeType ? { mimeType } : {}), videoBitsPerSecond: 5000000 });
+    recording.recorder = recorder;
+    state.recording = recording;
+    recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+    recorder.onerror = () => { cleanup(); toast('This browser could not finish the recording. Try PNG capture or another browser.'); };
+    recorder.onstop = () => {
+      const durationMs = Math.round(performance.now() - started);
+      const type = recorder.mimeType || mimeType || 'video/webm';
+      const blob = new Blob(chunks, { type });
+      const filename = `cloudy-${filenameFor(entry.title)}-${Date.now()}.${type.includes('mp4') ? 'mp4' : 'webm'}`;
+      const metadata = { filename, completedAt: new Date().toISOString(), durationMs, mimeType: type, width: canvas.width, height: canvas.height, bytes: blob.size };
+      for (const id of recording.entryIds) { const morph = state.journal.find(item => item.id === id); if (morph) { morph.recordings ||= []; morph.recordings.push(metadata); } }
+      cleanup();
+      if (!blob.size) { toast('The recording was empty. Leave the scene visible and try again.'); return; }
+      state.lastVideo = { blob, filename, metadata }; persistJournal();
+      downloadBlob(blob, filename); toast(`Video saved · ${(durationMs / 1000).toFixed(1)} seconds. Recording details are in your morph journal.`);
+      if ($('#document-dialog').open) renderDocument();
+    };
+    recorder.start(500);
+    $('#record-button').classList.add('is-recording');
+    $('#record-button').setAttribute('aria-label', 'Stop and save cloud video');
+    $('#record-button').querySelector('use').setAttribute('href', '#i-stop');
+    $('#record-button span').textContent = 'Save';
+    $('#recording-badge').hidden = false;
+    const tick = () => { const seconds = Math.floor((performance.now() - started) / 1000); $('#recording-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; };
+    tick(); timer = setInterval(tick, 500);
+    toast('Recording your cloud. Morph it while recording, then press Stop & save.');
+  } catch { cleanup(); toast('Recording could not start. You can still save an image and your morph document.'); }
+}
+
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = element('a');
@@ -241,7 +388,9 @@ async function morph(prompt) {
   $('#prompt-status').textContent = 'A little imagination is taking shape…';
   try {
     const result = await api('morph', { method: 'POST', body: JSON.stringify({ prompt: prompt.trim() }) });
-    setShape(result.shape, result.intent === 'sculpture' ? result.title : 'A new idea, made real.');
+    setShape(result.shape, result.intent === 'sculpture' ? result.title : 'A new idea, made real.', result.custom);
+    const entry = addMorphEntry(prompt.trim(), result);
+    state.recording?.entryIds.add(entry.id);
     $('#prompt-status').textContent = result.message;
     if (result.project) {
       await loadProjects();
@@ -299,23 +448,24 @@ $('#earth-dialog').addEventListener('close', () => {
   renderer.setMotion(state.motion && state.view === 'studio');
 });
 $('#controls-button').addEventListener('click', () => $('#controls-dialog').showModal());
-$('#shape-select').addEventListener('change', (event) => setShape(event.target.value));
+$('#shape-select').addEventListener('change', (event) => { setShape(event.target.value); const entry = addMorphEntry(`Select ${state.custom?.label || state.shape}`, { shape: state.shape, custom: state.custom }); state.recording?.entryIds.add(entry.id); });
 $('#wind').addEventListener('input', (event) => { renderer.setWind(Number(event.target.value)); $('#wind-value').textContent = `${event.target.value}%`; savePreferences(); });
+$('#detail').addEventListener('input', (event) => { renderer.setDetail(Number(event.target.value)); $('#detail-value').textContent = `${event.target.value}%`; savePreferences(); });
+$('#glitter').addEventListener('change', () => { renderer.setGlitter($('#glitter').checked); savePreferences(); });
 $('#motion-button').addEventListener('click', () => setMotion(!state.motion));
-$('#capture-button').addEventListener('click', async () => {
-  const image = new Image();
-  image.src = renderer.capture();
-  await image.decode();
-  const canvas = document.createElement('canvas');
-  canvas.width = image.width; canvas.height = image.height;
-  const context = canvas.getContext('2d');
-  const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
-  const colors = { day: ['#b9c8ec', '#e6d8ec'], sunset: ['#8285c4', '#efbdb0'], night: ['#151b3d', '#655080'] }[state.atmosphere];
-  gradient.addColorStop(0, colors[0]); gradient.addColorStop(1, colors[1]);
-  context.fillStyle = gradient; context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(image, 0, 0);
-  canvas.toBlob((blob) => { if (blob) { downloadBlob(blob, `cloudy-${state.shape}.png`); toast('A little piece of your sky, saved.'); } }, 'image/png');
-});
+$('#capture-button').addEventListener('click', saveSceneImage);
+$('#record-button').addEventListener('click', toggleRecording);
+$('#recording-stop').addEventListener('click', stopRecording);
+$('#document-button').addEventListener('click', openDocument);
+$('#journal-button').addEventListener('click', openDocument);
+$('#document-entry').addEventListener('change', renderDocument);
+$('#document-notes').addEventListener('input', () => { const entry = selectedEntry(); entry.notes = $('#document-notes').value; persistJournal(); $('#document-text').textContent = markdownDocument(entry); });
+$('#document-download').addEventListener('click', () => { const entry = selectedEntry(); downloadBlob(new Blob([markdownDocument(entry)], { type: 'text/markdown;charset=utf-8' }), `cloudy-${filenameFor(entry.title)}.md`); });
+$('#journal-download').addEventListener('click', () => downloadBlob(new Blob([JSON.stringify({ platform: 'Cloudy', exportedAt: new Date().toISOString(), morphs: state.journal }, null, 2)], { type: 'application/json' }), 'cloudy-morph-journal.json'));
+$('#video-download').addEventListener('click', () => { if (state.lastVideo) downloadBlob(state.lastVideo.blob, state.lastVideo.filename); });
+$('#fullscreen-button').addEventListener('click', async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); else toast('Your scene already fills the window. Browser fullscreen is unavailable here.'); } catch { toast('The scene fills your window. Fullscreen is unavailable in this browser context.'); } });
+document.addEventListener('fullscreenchange', () => { const active = Boolean(document.fullscreenElement); $('#fullscreen-button').setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen'); $('#fullscreen-button').title = active ? 'Exit fullscreen' : 'Enter fullscreen'; });
+$('#focus-button').addEventListener('click', () => { const hidden = document.body.classList.toggle('scene-focus'); $('#focus-button').setAttribute('aria-label', hidden ? 'Show scene controls' : 'Hide scene controls'); $('#focus-button').setAttribute('aria-pressed', String(hidden)); });
 $('#hosting-project').addEventListener('change', () => { $('#hosting-export').disabled = !$('#hosting-project').value; });
 $('#hosting-export').addEventListener('click', () => exportProject(state.projects.find((project) => project.id === $('#hosting-project').value)));
 $('#preview-export').addEventListener('click', () => exportProject(state.currentProject));
@@ -326,19 +476,23 @@ $('#menu-button').addEventListener('click', () => {
   $('#menu-button').setAttribute('aria-expanded', String(open));
 });
 $('#sidebar-overlay').addEventListener('click', closeNavigation);
-window.addEventListener('pagehide', (event) => { if (!event.persisted) renderer.dispose(); });
+window.addEventListener('pagehide', (event) => { if (state.recording) stopRecording(); if (!event.persisted) renderer.dispose(); });
 
 try {
   const preferences = JSON.parse(localStorage.getItem('cloudy-sky') || '{}');
-  if (preferences.shape) setShape(preferences.shape);
+  if (preferences.shape) setShape(preferences.shape, undefined, preferences.custom);
   if (preferences.atmosphere) setAtmosphere(preferences.atmosphere);
   if (typeof preferences.motion === 'boolean') setMotion(preferences.motion);
   if (Number.isFinite(preferences.wind)) { $('#wind').value = preferences.wind; $('#wind-value').textContent = `${preferences.wind}%`; }
+  if (Number.isFinite(preferences.detail)) { $('#detail').value = preferences.detail; $('#detail-value').textContent = `${preferences.detail}%`; }
+  if (typeof preferences.glitter === 'boolean') $('#glitter').checked = preferences.glitter;
 } catch {}
 const requestedShape = new URLSearchParams(location.search).get('shape') || window.CLOUDY_INITIAL_SHAPE;
 if (requestedShape) setShape(requestedShape);
-renderer.setAtmosphere(state.atmosphere);
+setAtmosphere(state.atmosphere);
 renderer.setWind(Number($('#wind').value));
+renderer.setDetail(Number($('#detail').value));
+renderer.setGlitter($('#glitter').checked);
 setMotion(state.motion);
 Promise.all([loadProjects(), updateStatus()]).catch(() => {
   $('#prompt-status').textContent = 'The cloud canvas is ready. Start the Cloudy server to build and save apps.';

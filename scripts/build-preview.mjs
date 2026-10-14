@@ -34,7 +34,7 @@ async function api(route, options = {}) {
     const policyError = contentPolicyViolation(prompt);
     if (policyError) throw new Error(policyError);
     const result = classifyPrompt(prompt);
-    if (result.intent === 'sculpture') return { ...result, message: 'Cloudy is taking the shape of a ' + result.shape + '.' };
+    if (result.intent === 'sculpture') return { ...result, source: 'local', message: result.custom ? result.custom.kind === 'text' ? 'Cloudy is forming your words from cloud pixels.' : 'Cloudy is forming a ' + result.custom.label + ' silhouette.' : 'Cloudy is taking the shape of a ' + result.shape + '.' };
     const now = new Date().toISOString();
     const id = 'cld_' + (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c === 'x' ? r : (r&3|8)).toString(16); }));
     const project = { ...result, id, prompt, source: 'local', createdAt: now, updatedAt: now, html: generateLocalApp({ ...result, prompt }) };

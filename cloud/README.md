@@ -15,7 +15,17 @@ Open `/cloud/` on the running server. No external scripts, fonts, or graphics ar
 
 Ask for `Earth`, select **Earth globe** in cloud controls, or open `/cloud/?shape=earth`. **Explore Earth** opens the original iOS 1 space explorer in an Earth-focused view, with orbit and zoom controls. The explorer remains available directly at `/universal-explorer.html?view=earth`. Both Earth views are illustrations/simulations, not live satellite imagery.
 
-The local creation engine creates interactive task boards, dashboards, portfolios/landing pages, sample stores, and weather apps. Arbitrary prompts use a starter template unless the optional AI engine is connected. Weather requests need access to `api.open-meteo.com`; failures are shown inside the generated app.
+The local creation engine creates interactive task boards, dashboards, portfolios/landing pages, sample stores, and weather apps from app requests. Other requests become named sculptures, mapped glyphs, or cloud words. Optional AI can generate more flexible app content while preserving the requested mode. Weather requests need access to `api.open-meteo.com`; failures are shown inside the generated app.
+
+## Fullscreen studio, documents, and recording
+
+The Studio artwork fills the browser viewport. Use **Fullscreen** to fill the display, or **Hide scene controls** for an unobstructed view. The workspace menu still provides apps, Infrastructure, and the Earth explorer.
+
+The renderer uses adaptive cloud detail and tiny generated JPEG glimmer sprites; these are visual effects, not physical nanotechnology. Controls adjust detail, sparkle, wind, and motion. Reduced-motion preferences are respected. Ask for butterfly, rocket, cat, dolphin, flower, and other mapped glyph silhouettes. Free-form requests such as `Morph into a luminous teapot` become a sculpture of the requested words. The local engine does not produce arbitrary semantic 3D models.
+
+**Record** captures the sky, cloud, glimmers, and morph transitions without microphone access. Press **Stop & save** to download a WebM video (MP4 when the browser negotiates that format). Recording resolution is capped while preserving the scene's aspect ratio. Capture uses the cloud canvas, not dialogs or app previews. Browsers without MediaRecorder/canvas capture retain PNG and document downloads.
+
+**Document this morph** opens the local journal, including each successful prompt, result, time, scene settings, optional notes, and recording metadata. Download an individual Markdown document or the complete JSON journal. The journal persists in this browser where localStorage is available. Videos are downloaded separately; the journal stores recording metadata rather than large video bytes. Save the downloaded files to retain them after clearing browser data.
 
 Projects are stored outside the checkout at `/workspace/.cloudy-state`. Override this using `CLOUDY_STATE_DIR` for other machines. Generated app previews run in a sandboxed iframe. Preview task data lasts for the current session; exported apps save browser data where supported.
 

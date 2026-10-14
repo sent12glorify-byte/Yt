@@ -5,7 +5,7 @@
  * cloudy.setShape('heart'); cloudy.setAtmosphere('sunset');
  */
 export const supportedShapes = Object.freeze([
-  'cloud', 'heart', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon', 'earth',
+  'cloud', 'heart', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon', 'earth', 'custom',
 ]);
 
 const TAU = Math.PI * 2;
@@ -212,6 +212,71 @@ function sampleShape(name, rng, index, count) {
   return sampleShape('cloud', rng, index, count);
 }
 
+function sampleCustomShape(input) {
+  const kind = input?.kind === 'glyph' ? 'glyph' : 'text';
+  const value = Array.from(String(input?.value ?? '').trim()).slice(0, 96).join('');
+  if (!value) return null;
+  const mask = document.createElement('canvas');
+  mask.width = 1024;
+  mask.height = 640;
+  const ctx = mask.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (kind === 'glyph') {
+    ctx.font = '500px "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+    ctx.fillText(value, 512, 320, 870);
+  } else {
+    const words = value.replace(/\s+/g, ' ').split(' ');
+    const lines = [''];
+    for (const word of words) {
+      const current = lines.length - 1;
+      if (lines[current] && (lines[current] + ' ' + word).length > 22 && lines.length < 3) lines.push(word);
+      else lines[current] += (lines[current] ? ' ' : '') + word;
+    }
+    const family = '"Avenir Next", "DejaVu Sans", Arial, sans-serif';
+    ctx.font = `900 160px ${family}`;
+    const measured = Math.max(...lines.map(line => ctx.measureText(line).width));
+    const font = Math.min(190, 160 * 875 / Math.max(measured, 1), 480 / (lines.length * 1.15));
+    ctx.font = `900 ${font}px ${family}`;
+    lines.forEach((line, i) => ctx.fillText(line, 512, 320 + (i - (lines.length - 1) / 2) * font * 1.15));
+  }
+  const pixels = ctx.getImageData(0, 0, mask.width, mask.height).data;
+  const hits = [];
+  let left = mask.width;
+  let right = 0;
+  let top = mask.height;
+  let bottom = 0;
+  for (let y = 0; y < mask.height; y += 2) {
+    for (let x = 0; x < mask.width; x += 2) {
+      if (pixels[(y * mask.width + x) * 4 + 3] < 48) continue;
+      hits.push(x, y);
+      left = Math.min(left, x); right = Math.max(right, x);
+      top = Math.min(top, y); bottom = Math.max(bottom, y);
+    }
+  }
+  if (!hits.length) return null;
+  const scale = Math.min(1.82 / Math.max(1, right - left), 1.24 / Math.max(1, bottom - top));
+  const points = new Float32Array(hits.length);
+  for (let i = 0; i < hits.length; i += 2) {
+    points[i] = (hits[i] - (left + right) / 2) * scale;
+    points[i + 1] = (hits[i + 1] - (top + bottom) / 2) * scale;
+  }
+  const art = document.createElement('canvas');
+  art.width = right - left + 4;
+  art.height = bottom - top + 4;
+  const artContext = art.getContext('2d');
+  artContext.drawImage(mask, left - 2, top - 2, art.width, art.height, 0, 0, art.width, art.height);
+  artContext.globalCompositeOperation = 'source-in';
+  const smoke = artContext.createLinearGradient(0, 0, art.width * 0.35, art.height);
+  smoke.addColorStop(0, '#faf7ff');
+  smoke.addColorStop(0.5, '#dcd4f5');
+  smoke.addColorStop(1, '#aca0d5');
+  artContext.fillStyle = smoke;
+  artContext.fillRect(0, 0, art.width, art.height);
+  return { metadata: { kind, value, label: String(input.label || value).slice(0, 120) }, points, art: { canvas: art, width: art.width * scale, height: art.height * scale } };
+}
+
 export class CloudRenderer {
   constructor(canvas) {
     if (!canvas || typeof canvas.getContext !== 'function') throw new TypeError('CloudRenderer needs a canvas element.');
@@ -232,6 +297,19 @@ export class CloudRenderer {
     this.earthFrom = 0;
     this.earthTarget = 0;
     this.earthLongitude = -25 * Math.PI / 180;
+    this.cloudMix = 1;
+    this.cloudFrom = 1;
+    this.cloudTarget = 1;
+    this.customMix = 0;
+    this.customFrom = 0;
+    this.customTarget = 0;
+    this.customArt = null;
+    this.detail = 88;
+    this.glitter = 1;
+    this.customShape = null;
+    this.customSamples = null;
+    this.glitterSprites = this.makeGlitterSprites();
+    this.glitterParticles = [];
     this.count = 370;
     this.particles = [];
     const rng = randomGenerator(137);
@@ -269,7 +347,7 @@ export class CloudRenderer {
       this.observer.observe(canvas);
     }
     this.resize();
-    this.frameId = requestAnimationFrame(t => this.frame(t));
+    if (!this.frameId) this.frameId = requestAnimationFrame(t => this.frame(t));
   }
 
   makeSprites(atmosphere) {
@@ -281,9 +359,10 @@ export class CloudRenderer {
       const body = rgbMix(palette.shade, palette.body, 0.28 + shade * 0.08);
       for (let variant = 0; variant < 3; variant++) {
         const sprite = document.createElement('canvas');
-        sprite.width = 160;
-        sprite.height = 160;
+        sprite.width = 192;
+        sprite.height = 192;
         const context = sprite.getContext('2d');
+        context.scale(1.2, 1.2);
         const rng = randomGenerator(40 + variant);
         const blobs = [[80, 85, 50], [43, 76, 29], [65, 44, 30], [108, 54, 26], [118, 87, 25], [99, 117, 29], [53, 109, 27]];
         const gradient = context.createRadialGradient(51, 34, 1, 60, 49, 124);
@@ -302,12 +381,12 @@ export class CloudRenderer {
         context.fill();
         context.filter = 'none';
         context.globalCompositeOperation = 'source-atop';
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 180; i++) {
           const cx = 25 + rng() * 110;
           const cy = 25 + rng() * 105;
-          const radius = 3 + rng() * 12;
+          const radius = 1.5 + rng() * 8;
           const noise = context.createRadialGradient(cx, cy, 0, cx, cy, radius);
-          noise.addColorStop(0, color(i % 2 ? palette.light : palette.shade, 0.025));
+          noise.addColorStop(0, color(i % 2 ? palette.light : palette.shade, 0.042));
           noise.addColorStop(1, color(palette.body, 0));
           context.fillStyle = noise;
           context.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
@@ -319,28 +398,152 @@ export class CloudRenderer {
     return sprites;
   }
 
+  makeGlitterSprites() {
+    return ['#e8d6ff', '#b9eaff', '#ffebcd'].map((tint, variant) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, 32, 32);
+      const glow = ctx.createRadialGradient(16, 16, 0, 16, 16, 14);
+      glow.addColorStop(0, '#fff');
+      glow.addColorStop(0.12, tint);
+      glow.addColorStop(0.32, tint + '99');
+      glow.addColorStop(1, '#000');
+      ctx.fillStyle = glow;
+      ctx.fillRect(1, 1, 30, 30);
+      ctx.strokeStyle = tint;
+      ctx.lineWidth = variant === 1 ? 1.4 : 0.8;
+      ctx.beginPath();
+      ctx.moveTo(16, 5 + variant); ctx.lineTo(16, 27 - variant);
+      ctx.moveTo(5 + variant, 16); ctx.lineTo(27 - variant, 16);
+      ctx.stroke();
+      const image = new Image();
+      image.onload = () => { if (!this.disposed) this.render(); };
+      // Actual tiny JPEG sprites; screen blending removes their black backdrop.
+      image.src = canvas.toDataURL('image/jpeg', 0.97);
+      return { canvas, image };
+    });
+  }
+
+  particleBudget() {
+    const mobile = this.width < 600;
+    const constrained = (navigator.deviceMemory || 8) <= 2 || (navigator.hardwareConcurrency || 8) <= 2;
+    const areaFactor = mobile ? 1 : clamp(Math.sqrt(500000 / (this.width * this.height)), 0.55, 1);
+    const maximum = mobile ? (constrained ? 460 : 700) : Math.round((constrained ? 800 : 1280) * areaFactor);
+    const minimum = mobile ? 170 : 250;
+    return Math.round(minimum + (maximum - minimum) * this.detail / 100);
+  }
+
+  shapeTargets(count) {
+    const rng = randomGenerator(137 + supportedShapes.indexOf(this.shape) * 79);
+    return Array.from({ length: count }, (_, i) => {
+      if (this.shape === 'custom' && this.customSamples?.length) {
+        const index = Math.floor(rng() * (this.customSamples.length / 2)) * 2;
+        return { x: this.customSamples[index], y: this.customSamples[index + 1], z: (rng() - 0.5) * 0.2, radius: this.customShape.kind === 'glyph' ? 0.20 : 0.15 };
+      }
+      return sampleShape(this.shape, rng, i, count);
+    });
+  }
+
+  rebuildParticles(count) {
+    const previous = this.particles;
+    const targets = this.shapeTargets(count);
+    const rng = randomGenerator(7781);
+    const mainCount = Math.round(count * 0.21);
+    this.particles = targets.map((target, i) => {
+      const point = previous[i] || previous[i % Math.max(previous.length, 1)] || target;
+      return {
+        x: point.x, y: point.y, z: point.z, radiusScale: point.radiusScale ?? point.radius ?? 1,
+        baseRadius: i < mainCount ? 0.088 + rng() * 0.089 : 0.012 + rng() * 0.047,
+        seed: rng() * TAU, variant: i % 3,
+        alpha: i < mainCount ? 0.97 : 0.22 + rng() * 0.30,
+      };
+    });
+    this.count = count;
+    this.from = this.particles.map(p => ({ x: p.x, y: p.y, z: p.z, radius: p.radiusScale }));
+    this.target = targets;
+    this.earthFrom = this.earthMix;
+    this.earthTarget = this.shape === 'earth' ? 1 : 0;
+    this.cloudFrom = this.cloudMix;
+    this.cloudTarget = this.shape === 'cloud' ? 1 : 0;
+    this.customFrom = this.customMix;
+    this.customTarget = this.shape === 'custom' ? 1 : 0;
+    this.transitionStart = performance.now();
+    this.glitterParticles = Array.from({ length: Math.round(count * 0.92) }, (_, i) => ({
+      owner: i % count, x: (rng() - 0.5) * 0.034, y: (rng() - 0.5) * 0.034,
+      phase: rng() * TAU, rate: 0.9 + rng() * 2.2, size: i % 23 === 0 ? 11 + rng() * 7 : 3.2 + rng() * 5.5,
+      variant: i % 3,
+    }));
+  }
+
   resize() {
     const rect = this.canvas.getBoundingClientRect();
     this.width = Math.max(1, rect.width || this.canvas.clientWidth || 800);
     this.height = Math.max(1, rect.height || this.canvas.clientHeight || 450);
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Fullscreen high-DPI overdraw can dominate raster time; cap both DPR and area.
+    const pixelBudget = (navigator.deviceMemory || 8) <= 2 ? 1500000 : 2600000;
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(pixelBudget / (this.width * this.height)));
     this.canvas.width = Math.round(this.width * this.dpr);
     this.canvas.height = Math.round(this.height * this.dpr);
-    this.scale = Math.min(this.width * 0.43, this.height * 0.62);
+    this.cloudLayer ||= { canvas: document.createElement('canvas') };
+    this.cloudLayer.dpr = Math.min(1, Math.sqrt(1000000 / (this.width * this.height)));
+    this.cloudLayer.canvas.width = Math.round(this.width * this.cloudLayer.dpr);
+    this.cloudLayer.canvas.height = Math.round(this.height * this.cloudLayer.dpr);
+    this.cloudLayer.context = this.cloudLayer.canvas.getContext('2d');
+    this.scale = Math.min(this.width * 0.47, this.height * 0.82);
+    this.cloudStretch = clamp(this.height / this.width * 1.5, 1, 3.65);
+    this.frameInterval = this.width < 600 || (navigator.hardwareConcurrency || 8) <= 2 ? 30 : 15;
+    const count = this.particleBudget();
+    if (this.count !== count) this.rebuildParticles(count);
     this.render();
+    if (!this.frameId && !this.disposed) this.frameId = requestAnimationFrame(t => this.frame(t));
   }
 
   setShape(name) {
     const next = String(name || 'cloud').toLowerCase();
-    this.shape = supportedShapes.includes(next) ? next : 'cloud';
+    this.shape = supportedShapes.includes(next) && (next !== 'custom' || this.customSamples?.length) ? next : 'cloud';
     this.earthFrom = this.earthMix;
     this.earthTarget = this.shape === 'earth' ? 1 : 0;
+    this.cloudFrom = this.cloudMix;
+    this.cloudTarget = this.shape === 'cloud' ? 1 : 0;
+    this.customFrom = this.customMix;
+    this.customTarget = this.shape === 'custom' ? 1 : 0;
     this.from = this.particles.map(p => ({ x: p.x, y: p.y, z: p.z, radius: p.radiusScale }));
-    const rng = randomGenerator(137 + supportedShapes.indexOf(this.shape) * 79);
-    this.target = this.particles.map((_, i) => sampleShape(this.shape, rng, i, this.count));
+    this.target = this.shapeTargets(this.count);
     this.transitionStart = performance.now();
     if (!this.frameId && !this.disposed) this.frameId = requestAnimationFrame(t => this.frame(t));
     return this.shape;
+  }
+
+  setCustomShape(input) {
+    const sampled = sampleCustomShape(input);
+    if (!sampled) return this.setShape('cloud');
+    this.customShape = sampled.metadata;
+    this.customSamples = sampled.points;
+    this.previousCustomArt = this.customArt;
+    this.previousCustomOpacity = this.shape === 'custom' ? this.customMix : 0;
+    this.customArt = sampled.art;
+    this.customMix = 0;
+    return this.setShape('custom');
+  }
+
+  setDetail(value) {
+    const number = Number(value);
+    if (Number.isFinite(number)) this.detail = clamp(number, 0, 100);
+    const count = this.particleBudget();
+    if (count !== this.count) this.rebuildParticles(count);
+    this.render();
+    if (!this.frameId && !this.disposed) this.frameId = requestAnimationFrame(t => this.frame(t));
+    return this.detail;
+  }
+
+  setGlitter(value) {
+    const number = typeof value === 'boolean' ? Number(value) : Number(value);
+    if (Number.isFinite(number)) this.glitter = clamp(number > 1 ? number / 100 : number, 0, 1);
+    this.render();
+    return this.glitter;
   }
 
   setAtmosphere(name) {
@@ -363,6 +566,11 @@ export class CloudRenderer {
   frame(now) {
     this.frameId = null;
     if (this.disposed || document.hidden) return;
+    if (this.lastPaint && now - this.lastPaint < this.frameInterval) {
+      this.frameId = requestAnimationFrame(t => this.frame(t));
+      return;
+    }
+    this.lastPaint = now;
     const delta = this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.05) : 0;
     this.lastFrame = now;
     if (this.motion) this.elapsed += delta;
@@ -370,6 +578,13 @@ export class CloudRenderer {
     const progress = clamp((now - this.transitionStart) / duration, 0, 1);
     const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - Math.pow(-2 * progress + 2, 3) / 2;
     this.earthMix = mix(this.earthFrom, this.earthTarget, eased);
+    this.cloudMix = mix(this.cloudFrom, this.cloudTarget, eased);
+    this.customMix = mix(this.customFrom, this.customTarget, eased);
+    this.customTransition = eased;
+    if (progress === 1) {
+      this.previousCustomArt = null;
+      this.previousCustomOpacity = 0;
+    }
     if (this.motion && this.earthMix > 0) this.earthLongitude += delta * 0.032;
     for (let i = 0; i < this.count; i++) {
       const point = this.particles[i];
@@ -396,6 +611,7 @@ export class CloudRenderer {
     const cx = this.width / 2 + this.parallax.x * 18;
     const cy = this.height * 0.51 + this.parallax.y * 12 + (this.motion ? Math.sin(t * 0.47) * 5 : 0);
     const scale = this.scale;
+    const stretch = mix(1, this.cloudStretch, this.cloudMix);
     const palette = palettes[this.atmosphere];
     const glow = ctx.createRadialGradient(cx, cy + scale * 0.06, scale * 0.08, cx, cy, scale * 1.05);
     glow.addColorStop(0, color(palette.glow, 0.11));
@@ -409,18 +625,54 @@ export class CloudRenderer {
     ctx.fillRect(cx - scale * 1.1, cy - scale * 1.1, scale * 2.2, scale * 2.2);
     ctx.restore();
     if (this.earthMix > 0.001) this.drawEarth(cx, cy, scale, this.earthMix);
-    if (this.earthMix > 0.999) return;
-    const ordered = [...this.particles].sort((a, b) => a.z - b.z);
-    for (const particle of ordered) {
-      const wave = this.motion ? Math.sin(t * (0.24 + this.wind * 0.35) + particle.seed) : 0;
-      const x = cx + (particle.x + wave * movement + particle.z * this.parallax.x * 0.04) * scale;
-      const y = cy + (particle.y + Math.cos(t * 0.34 + particle.seed) * movement * (this.motion ? 1 : 0) + particle.z * this.parallax.y * 0.04) * scale;
-      const radius = particle.baseRadius * particle.radiusScale * scale * (1 + particle.z * 0.19 + wave * 0.025);
-      const shade = clamp(Math.round(4.5 - particle.y * 7 + particle.z * 2.5), 0, 8);
-      ctx.globalAlpha = particle.alpha * (1 - this.earthMix);
-      ctx.drawImage(this.sprites[shade][particle.variant], x - radius * 1.22, y - radius * 1.22, radius * 2.44, radius * 2.44);
+    if (this.customMix > 0 || (this.previousCustomArt && this.previousCustomOpacity > 0)) {
+      const paint = (art, opacity) => {
+        if (!art || opacity <= 0) return;
+        ctx.globalAlpha = opacity * 0.74;
+        ctx.drawImage(art.canvas, cx - art.width * scale / 2, cy - art.height * scale / 2, art.width * scale, art.height * scale);
+      };
+      paint(this.previousCustomArt, this.previousCustomOpacity * (1 - (this.customTransition ?? 0)));
+      paint(this.customArt, this.customMix);
+      ctx.globalAlpha = 1;
+    }
+    if (this.earthMix < 0.999) {
+      // Soft volumes use their own bounded raster; sharp glitter stays at canvas DPR.
+      const cloudCtx = this.cloudLayer.context;
+      cloudCtx.setTransform(this.cloudLayer.dpr, 0, 0, this.cloudLayer.dpr, 0, 0);
+      cloudCtx.clearRect(0, 0, this.width, this.height);
+      const ordered = [...this.particles].sort((a, b) => a.z - b.z);
+      for (const particle of ordered) {
+        const wave = this.motion ? Math.sin(t * (0.24 + this.wind * 0.35) + particle.seed) : 0;
+        const x = cx + (particle.x + wave * movement + particle.z * this.parallax.x * 0.04) * scale;
+        const y = cy + (particle.y * stretch + Math.cos(t * 0.34 + particle.seed) * movement * (this.motion ? 1 : 0) + particle.z * this.parallax.y * 0.04) * scale;
+        const radius = particle.baseRadius * particle.radiusScale * scale * Math.sqrt(stretch) * (1 + particle.z * 0.19 + wave * 0.025);
+        const shade = clamp(Math.round(4.5 - particle.y * 7 + particle.z * 2.5), 0, 8);
+        cloudCtx.globalAlpha = particle.alpha * (1 - this.earthMix);
+        cloudCtx.drawImage(this.sprites[shade][particle.variant], x - radius * 1.22, y - radius * 1.22, radius * 2.44, radius * 2.44);
+      }
+      cloudCtx.globalAlpha = 1;
+      ctx.drawImage(this.cloudLayer.canvas, 0, 0, this.width, this.height);
     }
     ctx.globalAlpha = 1;
+    if (this.glitter > 0) this.drawGlitter(cx, cy, scale, stretch);
+  }
+
+  drawGlitter(cx, cy, scale, stretch) {
+    const ctx = this.ctx;
+    const t = this.elapsed;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    for (const sparkle of this.glitterParticles) {
+      const point = this.particles[sparkle.owner];
+      const shimmer = 0.16 + 0.84 * Math.pow((Math.sin(t * sparkle.rate + sparkle.phase) + 1) / 2, 7);
+      const x = cx + (point.x + sparkle.x + Math.sin(t * 0.32 + sparkle.phase) * 0.006) * scale;
+      const y = cy + (point.y * stretch + sparkle.y + Math.cos(t * 0.29 + sparkle.phase) * 0.006) * scale;
+      const sprite = this.glitterSprites[sparkle.variant];
+      const size = sparkle.size * (0.76 + shimmer * 0.45);
+      ctx.globalAlpha = this.glitter * shimmer * (0.64 - this.earthMix * 0.43);
+      ctx.drawImage(sprite.image.complete && sprite.image.naturalWidth ? sprite.image : sprite.canvas, x - size / 2, y - size / 2, size, size);
+    }
+    ctx.restore();
   }
 
   prepareEarthProjection(size) {
@@ -468,7 +720,7 @@ export class CloudRenderer {
   drawEarth(cx, cy, scale, opacity) {
     const ctx = this.ctx;
     const radius = Math.min(scale * 0.72, this.height * 0.355, this.width * 0.32);
-    const resolution = Math.round(clamp(radius * this.dpr * 2, 220, this.width < 600 ? 360 : 420));
+    const resolution = Math.round(clamp(radius * this.dpr * 2, 220, this.width < 600 ? 512 : 768));
     if (!this.earthSurface || this.earthSurface.size !== resolution) this.prepareEarthProjection(resolution);
     const angle = this.earthLongitude + this.parallax.x * 0.25;
     if (!Number.isFinite(this.earthLastAngle) || Math.abs(angle - this.earthLastAngle) > 0.0015) {
@@ -528,6 +780,7 @@ export class CloudRenderer {
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave);
     window.removeEventListener('resize', this.onResize);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    for (const sprite of this.glitterSprites) sprite.image.onload = null;
   }
 }
 

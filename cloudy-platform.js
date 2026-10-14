@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const SHAPES = ['cloud', 'heart', 'earth', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon'];
+const SHAPES = ['cloud', 'heart', 'earth', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon', 'custom'];
 const INTENTS = ['sculpture', 'app', 'infrastructure'];
 const PROJECT_ID = /^cld_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_PROMPT = 2000;
@@ -41,25 +41,37 @@ function scriptJson(value) {
 
 export function classifyPrompt(prompt) {
   const lower = prompt.toLowerCase();
+  const morphRequest = prompt.match(/\b(?:morph(?:\s+(?:me|yourself|it|cloudy|the cloud))?(?:\s+(?:into|to))?|become|turn(?:\s+(?:me|yourself|it|cloudy|the cloud))?\s+into|sculpt(?:ure)?(?:\s+(?:of|into))?|shape\s+(?:of|into|as|like))\s+(.+)/i)
+    || prompt.match(/^(?:please\s+)?shape\s+(.+)/i);
+  const subject = (morphRequest?.[1] || prompt).replace(/^(?:a|an|the)\s+/i, '').replace(/\s+please[.!?]*$/i, '').replace(/[.!?]+$/, '').trim();
+  const target = morphRequest ? subject.toLowerCase() : lower;
   const aliases = [
     ['heart', /\b(heart|love)\b/], ['earth', /\b(earth|terra|homeworld|globe(?:\s*earth)?)\b/], ['planet', /\b(planet|saturn|orbit)\b/],
-    ['galaxy', /\b(galaxy|space|universe|stars?|cosmos)\b/], ['mountain', /\b(mountain|mountains|peak|alpine)\b/],
+    ['galaxy', /\b(galaxy|space|universe|stars|cosmos)\b/], ['mountain', /\b(mountain|mountains|peak|alpine)\b/],
     ['castle', /\b(castle|palace|fortress)\b/], ['tree', /\b(tree|forest|garden)\b/],
     ['dragon', /\b(dragon|dragonfly)\b/], ['cloud', /\b(cloud|cloudy)\b/],
   ];
-  const match = aliases.find(([, expression]) => expression.test(lower));
-  const shape = match?.[0] || 'cloud';
+  const match = aliases.find(([, expression]) => expression.test(target));
+  const glyphs = [
+    ['butterfly', '🦋'], ['rocket', '🚀'], ['cat', '🐈'], ['dog', '🐕'], ['dolphin', '🐬'],
+    ['flower', '🌸'], ['human', '🧍'], ['person', '🧍'], ['bird', '🕊'], ['snowflake', '❄'], ['infinity', '∞'], ['star', '★'],
+  ];
+  const glyph = glyphs.find(([noun]) => new RegExp(`\\b${noun}\\b`).test(target));
   const infrastructure = /\b(deploy(?:ment)?|hosting?|scale|scaling|server|container|infrastructure|docker|kubernetes)\b/.test(lower);
   const app = /\b(app|application|website|site|dashboard|workspace|platform|task|tasks|todo|to-do|kanban|portfolio|store|shop|weather|landing|page|notes?|timer|business|restaurant)\b/.test(lower);
-  const intent = infrastructure ? 'infrastructure' : app || !match ? 'app' : 'sculpture';
+  const intent = morphRequest ? 'sculpture' : infrastructure ? 'infrastructure' : app ? 'app' : 'sculpture';
+  const custom = intent === 'sculpture' && !match
+    ? { kind: glyph ? 'glyph' : 'text', value: glyph ? glyph[1] : subject.slice(0, 40) || 'Idea', label: subject.slice(0, 80) || 'Your idea' } : undefined;
+  const shape = match?.[0] || (custom ? 'custom' : 'cloud');
   const type = /\b(weather|forecast)\b/.test(lower) ? 'weather'
     : /\b(store|shop|ecommerce|commerce)\b/.test(lower) ? 'store'
       : /\b(task|tasks|todo|to-do|kanban|board)\b/.test(lower) ? 'task-board'
         : /\b(dashboard|analytics|workspace|platform)\b/.test(lower) || infrastructure ? 'dashboard' : 'landing-page';
   const defaultTitles = { weather: 'Weather window', store: 'Cloudy shop', 'task-board': 'Room to make things', dashboard: 'Your cloud workspace', 'landing-page': 'A little above ordinary' };
   const quoted = prompt.match(/["“]([^"”\n]{2,80})["”]/)?.[1];
-  const title = quoted || (intent === 'sculpture' ? `${shape[0].toUpperCase()}${shape.slice(1)} in the clouds` : defaultTitles[type]);
-  return { shape, intent, type, title };
+  const name = custom?.label || shape;
+  const title = quoted || (intent === 'sculpture' ? `${name[0].toUpperCase()}${name.slice(1)} in the clouds` : defaultTitles[type]);
+  return { shape, intent, type, title, ...(custom ? { custom } : {}) };
 }
 
 const APP_STYLES = `
@@ -133,7 +145,13 @@ function validateRemote(value) {
   if (typeof value.title !== 'string' || !value.title.trim() || value.title.length > 100) return null;
   if (typeof value.message !== 'string' || !value.message.trim() || value.message.length > 600) return null;
   if (value.intent !== 'sculpture' && (typeof value.html !== 'string' || value.html.length > MAX_HTML || !/<html[\s>]/i.test(value.html) || !/<\/html>/i.test(value.html))) return null;
-  return { shape: value.shape, intent: value.intent, title: value.title.trim(), message: value.message.trim(), html: value.intent === 'sculpture' ? undefined : value.html };
+  let custom;
+  if (value.shape === 'custom') {
+    const detail = value.custom;
+    if (!detail || !['glyph', 'text'].includes(detail.kind) || typeof detail.value !== 'string' || !detail.value.trim() || detail.value.length > 40 || typeof detail.label !== 'string' || !detail.label.trim() || detail.label.length > 80) return null;
+    custom = { kind: detail.kind, value: detail.value.trim(), label: detail.label.trim() };
+  }
+  return { shape: value.shape, intent: value.intent, title: value.title.trim(), message: value.message.trim(), html: value.intent === 'sculpture' ? undefined : value.html, custom };
 }
 
 export function createCloudyRouter({ stateDirectory = process.env.CLOUDY_STATE_DIR || '/workspace/.cloudy-state', aiApiKey = process.env.CLOUDY_AI_API_KEY, aiModel = process.env.CLOUDY_AI_MODEL || 'gpt-4o-mini', fetchImpl = globalThis.fetch } = {}) {
@@ -185,7 +203,7 @@ export function createCloudyRouter({ stateDirectory = process.env.CLOUDY_STATE_D
     const violation = contentPolicyViolation(cleanPrompt);
     if (violation) { res.status(422).json({ error: violation, code: 'CONTENT_POLICY' }); return; }
     const local = classifyPrompt(cleanPrompt);
-    let result = { ...local, message: local.intent === 'sculpture' ? `Cloudy is taking the shape of a ${local.shape}.` : local.intent === 'infrastructure' ? 'Your app and a runnable Node.js / Docker deployment bundle are ready. Download the bundle to deploy to your hosting provider.' : 'Your working app is ready. Open its preview, try it out, and make it your own.' };
+    let result = { ...local, message: local.intent === 'sculpture' ? local.custom ? `Cloudy is shaping a particle silhouette of ${local.custom.label}.` : `Cloudy is taking the shape of a ${local.shape}.` : local.intent === 'infrastructure' ? 'Your app and a runnable Node.js / Docker deployment bundle are ready. Download the bundle to deploy to your hosting provider.' : 'Your working app is ready. Open its preview, try it out, and make it your own.' };
     let source = 'local';
     if (aiApiKey && fetchImpl) {
       try {
@@ -193,7 +211,7 @@ export function createCloudyRouter({ stateDirectory = process.env.CLOUDY_STATE_D
           method: 'POST', signal: AbortSignal.timeout(14000),
           headers: { Authorization: `Bearer ${aiApiKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: aiModel, response_format: { type: 'json_object' }, temperature: 0.7, max_tokens: 9000, messages: [
-            { role: 'system', content: 'You are Cloudy, a creative app builder. Never generate pornography, invented harmful accusations, smear campaigns, or targeted harassment. Educational sexual health and neutral discussion of defamation are allowed. Return only a JSON object with shape, intent, title, message, html. shape must be one of cloud, heart, earth, planet, galaxy, mountain, castle, tree, dragon. Earth, Terra, homeworld, and Earth globes use the distinct earth shape; Saturn and generic planets use planet. intent must be sculpture, app, or infrastructure. For visual shape requests use sculpture and empty html. For apps or infrastructure create a useful complete interactive self-contained HTML document with inline CSS/JS, no external scripts, no external fonts, no tracking, and no secrets. Keep HTML below 120000 characters, title under 100 and message under 600. Do not claim deployment or real data integrations. Clearly label sample data. Use DOM textContent for user input. App requests must produce an app; infrastructure requests produce an app ready for a Node/Docker bundle. Keep all network requests absent except weather forecasts may use https://api.open-meteo.com.' },
+            { role: 'system', content: 'You are Cloudy, a creative app builder. Never generate pornography, invented harmful accusations, smear campaigns, or targeted harassment. Educational sexual health and neutral discussion of defamation are allowed. Return only a JSON object with shape, intent, title, message, html, and custom when applicable. shape must be one of cloud, heart, earth, planet, galaxy, mountain, castle, tree, dragon, custom. Earth, Terra, homeworld, and Earth globes use the distinct earth shape; Saturn and generic planets use planet. For other sculpture subjects use custom with {kind:"glyph"|"text",value:string,label:string}. A glyph is a suitable Unicode symbol; text is a word silhouette of the requested subject. Keep custom.value between 1 and 40 characters and custom.label between 1 and 80 characters. Custom sculptures are two-dimensional particle silhouettes, not exact arbitrary 3D models; do not claim otherwise. intent must be sculpture, app, or infrastructure. For visual shape requests use sculpture and empty html. For apps or infrastructure create a useful complete interactive self-contained HTML document with inline CSS/JS, no external scripts, no external fonts, no tracking, and no secrets. Keep HTML below 120000 characters, title under 100 and message under 600. Do not claim deployment or real data integrations. Clearly label sample data. Use DOM textContent for user input. App requests must produce an app; infrastructure requests produce an app ready for a Node/Docker bundle. Keep all network requests absent except weather forecasts may use https://api.open-meteo.com.' },
             { role: 'user', content: cleanPrompt },
           ] }),
         });
@@ -202,18 +220,19 @@ export function createCloudyRouter({ stateDirectory = process.env.CLOUDY_STATE_D
         const raw = payload.choices?.[0]?.message?.content;
         if (typeof raw !== 'string' || raw.length > MAX_HTML + 2000) throw new Error('Invalid AI response');
         const generated = validateRemote(JSON.parse(raw));
-        if (!generated || (local.intent !== 'sculpture' && generated.intent === 'sculpture')) throw new Error('Invalid AI output');
-        if (contentPolicyViolation(`${generated.title}\n${generated.message}\n${generated.html || ''}`)) throw new Error('Generated output violates content policy');
+        if (!generated || generated.intent !== local.intent) throw new Error('Invalid AI output');
+        if (contentPolicyViolation(`${generated.title}\n${generated.message}\n${generated.html || ''}\n${generated.custom?.value || ''}\n${generated.custom?.label || ''}`)) throw new Error('Generated output violates content policy');
         result = { ...local, ...generated };
         source = 'ai'; aiMode = 'connected'; aiStatus = 'connected';
       } catch { aiMode = 'local'; aiStatus = 'fallback'; }
     }
     const { shape, intent, title, message } = result;
-    if (intent === 'sculpture') { res.json({ shape, intent, title, message, source }); return; }
+    const customFields = shape === 'custom' && result.custom ? { custom: result.custom } : {};
+    if (intent === 'sculpture') { res.json({ shape, intent, title, message, source, ...customFields }); return; }
     const now = new Date().toISOString();
     const project = { id: `cld_${randomUUID()}`, title, prompt: cleanPrompt, type: local.type, shape, source, html: result.html || generateLocalApp({ title, prompt: cleanPrompt, type: local.type }), createdAt: now, updatedAt: now };
     await serialized(async () => { await saveProject(project); projects.set(project.id, project); });
-    res.status(201).json({ shape, intent, title, message, source, project: publicProject(project, req.baseUrl) });
+    res.status(201).json({ shape, intent, title, message, source, ...customFields, project: publicProject(project, req.baseUrl) });
   }));
 
   router.get('/projects', route(async (req, res) => {

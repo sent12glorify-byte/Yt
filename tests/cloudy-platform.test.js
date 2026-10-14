@@ -32,7 +32,9 @@ test('classifies all sculptures, apps, and deployment requests', () => {
   assert.equal(classifyPrompt('Build a task board').type, 'task-board');
   assert.equal(classifyPrompt('Make a portfolio website').intent, 'app');
   assert.equal(classifyPrompt('Deploy a dashboard in a container').intent, 'infrastructure');
-  assert.equal(classifyPrompt('A completely new idea').intent, 'app');
+  assert.equal(classifyPrompt('A completely new idea').intent, 'sculpture');
+  assert.equal(classifyPrompt('A completely new idea').shape, 'custom');
+  assert.equal(classifyPrompt('A completely new idea').custom.value, 'completely new idea');
 });
 
 test('Earth and its aliases morph into an Earth sculpture while Saturn and Earth apps retain their intent', async t => {
@@ -50,6 +52,33 @@ test('Earth and its aliases morph into an Earth sculpture while Saturn and Earth
   assert.equal(app.status, 201);
   const result = await app.json();
   assert.equal(result.shape, 'earth'); assert.equal(result.intent, 'app'); assert.ok(result.project.id);
+});
+
+test('custom morphs use glyphs or bounded word silhouettes without creating an app', async t => {
+  const { call } = await fixture(t);
+  const butterfly = await (await call('/morph', { prompt: 'Morph into a butterfly' })).json();
+  assert.equal(butterfly.shape, 'custom'); assert.equal(butterfly.intent, 'sculpture'); assert.equal(butterfly.project, undefined);
+  assert.deepEqual(butterfly.custom, { kind: 'glyph', value: '🦋', label: 'butterfly' });
+  const teapot = await (await call('/morph', { prompt: 'Morph into a luminous teapot' })).json();
+  assert.equal(teapot.shape, 'custom'); assert.equal(teapot.intent, 'sculpture'); assert.equal(teapot.project, undefined);
+  assert.deepEqual(teapot.custom, { kind: 'text', value: 'luminous teapot', label: 'luminous teapot' });
+  const noun = await call('/morph', { prompt: 'teapot' });
+  assert.equal(noun.status, 200);
+  const nakedTeapot = await noun.json();
+  assert.equal(nakedTeapot.shape, 'custom'); assert.equal(nakedTeapot.intent, 'sculpture'); assert.equal(nakedTeapot.project, undefined);
+  assert.deepEqual(nakedTeapot.custom, { kind: 'text', value: 'teapot', label: 'teapot' });
+  for (const prompt of ['Become a dashboard', 'Turn into an origami crane', 'Sculpt a friendly robot', 'Shape of a silver spoon']) {
+    const result = await (await call('/morph', { prompt })).json(); assert.equal(result.intent, 'sculpture'); assert.equal(result.shape, 'custom');
+  }
+  for (const [noun, value] of [['rocket', '🚀'], ['cat', '🐈'], ['dog', '🐕'], ['dolphin', '🐬'], ['flower', '🌸'], ['human', '🧍'], ['person', '🧍'], ['bird', '🕊'], ['snowflake', '❄'], ['infinity', '∞'], ['star', '★']]) {
+    const result = await (await call('/morph', { prompt: noun })).json(); assert.equal(result.shape, 'custom'); assert.equal(result.custom.value, value);
+  }
+  const long = await (await call('/morph', { prompt: 'Morph into a ' + 'luminous '.repeat(20) })).json();
+  assert.equal(long.custom.value.length, 40); assert.equal(long.custom.label.length, 80);
+  assert.equal((await (await call('/projects')).json()).projects.length, 0);
+  const app = await (await call('/morph', { prompt: 'Build a butterfly website' })).json();
+  assert.equal(app.intent, 'app'); assert.ok(app.project.id); assert.equal(app.custom, undefined);
+  assert.equal((await call('/morph', { prompt: 'Morph into pornographic images' })).status, 422);
 });
 
 test('rejects malformed prompts and unsafe project identifiers', async t => {
@@ -145,4 +174,19 @@ test('optional remote AI uses fixed endpoint, validates output, and falls back o
   assert.equal((await (await call('/status')).json()).aiMode, 'connected');
   const rejected = await (await call('/morph', { prompt: 'Build a dashboard' })).json(); assert.equal(rejected.source, 'local');
   const status = await (await call('/status')).json(); assert.equal(status.aiMode, 'local'); assert.equal(status.aiStatus, 'fallback');
+});
+
+test('remote custom sculptures validate details and fall back when bounds are exceeded', async t => {
+  let oversized = false;
+  let wrongIntent = false;
+  const { call } = await fixture(t, { aiApiKey: 'test-only-key', fetchImpl: async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ shape: 'custom', intent: wrongIntent ? 'app' : 'sculpture', title: 'A butterfly silhouette', message: 'Your particle silhouette is ready.', html: wrongIntent ? '<html><body>An unwanted app</body></html>' : '', custom: { kind: 'glyph', value: oversized ? 'x'.repeat(41) : '🦋', label: 'butterfly' } }) } }] }) }) });
+  const generated = await (await call('/morph', { prompt: 'Morph into a butterfly' })).json();
+  assert.equal(generated.source, 'ai'); assert.deepEqual(generated.custom, { kind: 'glyph', value: '🦋', label: 'butterfly' });
+  oversized = true;
+  const fallback = await (await call('/morph', { prompt: 'Morph into a luminous teapot' })).json();
+  assert.equal(fallback.source, 'local'); assert.equal(fallback.custom.kind, 'text'); assert.equal(fallback.custom.value, 'luminous teapot');
+  oversized = false; wrongIntent = true;
+  const plain = await (await call('/morph', { prompt: 'teapot' })).json();
+  assert.equal(plain.intent, 'sculpture'); assert.equal(plain.source, 'local'); assert.equal(plain.custom.value, 'teapot');
+  assert.equal((await (await call('/projects')).json()).projects.length, 0);
 });

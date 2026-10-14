@@ -1,6 +1,6 @@
 # ☁ Cloudy — A space for possibility
 
-The development server now opens **Cloudy**, a cloud sculpture studio, prompt-driven app workspace, and hosting bundle builder. Run `npm start` and visit `/cloud/`. The original server-side explorer is retained at `/index.html`; the original iOS 1 static explorer is preserved in `universal-explorer.html`.
+The development server now opens **Cloudy**, a fullscreen cloud studio with JPEG glimmers, custom morphs, PNG/video capture, and a downloadable morph journal, plus a prompt-driven app workspace and hosting bundle builder. Run `npm start` and visit `/cloud/`. The original server-side explorer is retained at `/index.html`; the original iOS 1 static explorer is preserved in `universal-explorer.html`.
 
 See [Cloudy setup, browser preview, and hosting instructions](cloud/README.md). To create a browser-openable single-file preview, run `node scripts/build-preview.mjs`. The repository's root `index.html` is that self-contained browser edition for GitHub Pages. Refresh it with `node scripts/build-preview.mjs index.html` after changing Cloudy.
 
