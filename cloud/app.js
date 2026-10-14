@@ -3,7 +3,7 @@ import CloudRenderer from './renderer.js';
 const $ = (selector) => document.querySelector(selector);
 const apiBase = new URL('../api/cloudy/', location.href);
 const renderer = new CloudRenderer($('#cloud-canvas'));
-const state = { projects: [], currentProject: null, busy: false, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, shape: 'cloud', atmosphere: 'day' };
+const state = { projects: [], currentProject: null, busy: false, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, shape: 'cloud', atmosphere: 'day', view: 'studio' };
 let toastTimer;
 
 function toast(message) {
@@ -31,9 +31,10 @@ function savePreferences() {
 function setShape(shape, description) {
   state.shape = renderer.setShape(shape);
   $('#shape-select').value = state.shape;
-  $('#shape-name').textContent = state.shape === 'cloud' ? 'CUMULUS 001' : `${state.shape.toUpperCase()} IN THE CLOUDS`;
-  $('#shape-description').textContent = description || 'Your imagination, taking shape.';
-  $('#cloud-canvas').setAttribute('aria-label', `An animated cloud sculpture in the shape of a ${state.shape}`);
+  $('#shape-name').textContent = state.shape === 'earth' ? 'EARTH · OUR HOME' : state.shape === 'cloud' ? 'CUMULUS 001' : `${state.shape.toUpperCase()} IN THE CLOUDS`;
+  $('#shape-description').textContent = state.shape === 'earth' ? 'Ocean, land, and cloud. An illustrated globe.' : description || 'Your imagination, taking shape.';
+  $('#earth-open-inline').hidden = state.shape !== 'earth';
+  $('#cloud-canvas').setAttribute('aria-label', state.shape === 'earth' ? 'An illustrated Earth globe with blue oceans, green continents, and white clouds' : `An animated cloud sculpture in the shape of a ${state.shape}`);
   savePreferences();
 }
 
@@ -70,6 +71,7 @@ function closeNavigation() {
 
 function setView(view) {
   if (!['studio', 'creations', 'infrastructure'].includes(view)) return;
+  state.view = view;
   document.querySelectorAll('main > .view').forEach((section) => { section.hidden = section.id !== `${view}-view`; });
   document.querySelectorAll('.nav-list [data-view]').forEach((button) => {
     const selected = button.dataset.view === view;
@@ -164,6 +166,18 @@ function openPreview(project) {
   $('#preview-title').textContent = project.title;
   $('#preview-frame').src = project.previewUrl;
   $('#preview-dialog').showModal();
+}
+
+function openEarthExplorer() {
+  closeNavigation();
+  const frame = $('#earth-frame');
+  if (typeof window.CLOUDY_EARTH_EXPLORER === 'string') {
+    frame.srcdoc = window.CLOUDY_EARTH_EXPLORER;
+  } else {
+    frame.src = new URL('../universal-explorer.html?view=earth', location.href).href;
+  }
+  renderer.setMotion(false);
+  $('#earth-dialog').showModal();
 }
 
 function downloadBlob(blob, filename) {
@@ -277,6 +291,13 @@ $('#new-creation').addEventListener('click', () => focusPrompt(true));
 $('#sidebar-create').addEventListener('click', () => focusPrompt());
 $('#command-button').addEventListener('click', () => focusPrompt());
 $('#help-button').addEventListener('click', () => { closeNavigation(); $('#help-dialog').showModal(); });
+$('#earth-explorer-button').addEventListener('click', openEarthExplorer);
+$('#earth-open-inline').addEventListener('click', openEarthExplorer);
+$('#earth-dialog').addEventListener('close', () => {
+  $('#earth-frame').removeAttribute('srcdoc');
+  $('#earth-frame').src = 'about:blank';
+  renderer.setMotion(state.motion && state.view === 'studio');
+});
 $('#controls-button').addEventListener('click', () => $('#controls-dialog').showModal());
 $('#shape-select').addEventListener('change', (event) => setShape(event.target.value));
 $('#wind').addEventListener('input', (event) => { renderer.setWind(Number(event.target.value)); $('#wind-value').textContent = `${event.target.value}%`; savePreferences(); });
@@ -314,6 +335,8 @@ try {
   if (typeof preferences.motion === 'boolean') setMotion(preferences.motion);
   if (Number.isFinite(preferences.wind)) { $('#wind').value = preferences.wind; $('#wind-value').textContent = `${preferences.wind}%`; }
 } catch {}
+const requestedShape = new URLSearchParams(location.search).get('shape') || window.CLOUDY_INITIAL_SHAPE;
+if (requestedShape) setShape(requestedShape);
 renderer.setAtmosphere(state.atmosphere);
 renderer.setWind(Number($('#wind').value));
 setMotion(state.motion);

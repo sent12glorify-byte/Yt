@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const SHAPES = ['cloud', 'heart', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon'];
+const SHAPES = ['cloud', 'heart', 'earth', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon'];
 const INTENTS = ['sculpture', 'app', 'infrastructure'];
 const PROJECT_ID = /^cld_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_PROMPT = 2000;
@@ -42,7 +42,7 @@ function scriptJson(value) {
 export function classifyPrompt(prompt) {
   const lower = prompt.toLowerCase();
   const aliases = [
-    ['heart', /\b(heart|love)\b/], ['planet', /\b(planet|earth|saturn|orbit)\b/],
+    ['heart', /\b(heart|love)\b/], ['earth', /\b(earth|terra|homeworld|globe(?:\s*earth)?)\b/], ['planet', /\b(planet|saturn|orbit)\b/],
     ['galaxy', /\b(galaxy|space|universe|stars?|cosmos)\b/], ['mountain', /\b(mountain|mountains|peak|alpine)\b/],
     ['castle', /\b(castle|palace|fortress)\b/], ['tree', /\b(tree|forest|garden)\b/],
     ['dragon', /\b(dragon|dragonfly)\b/], ['cloud', /\b(cloud|cloudy)\b/],
@@ -193,7 +193,7 @@ export function createCloudyRouter({ stateDirectory = process.env.CLOUDY_STATE_D
           method: 'POST', signal: AbortSignal.timeout(14000),
           headers: { Authorization: `Bearer ${aiApiKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: aiModel, response_format: { type: 'json_object' }, temperature: 0.7, max_tokens: 9000, messages: [
-            { role: 'system', content: 'You are Cloudy, a creative app builder. Never generate pornography, invented harmful accusations, smear campaigns, or targeted harassment. Educational sexual health and neutral discussion of defamation are allowed. Return only a JSON object with shape, intent, title, message, html. shape must be one of cloud, heart, planet, galaxy, mountain, castle, tree, dragon. intent must be sculpture, app, or infrastructure. For visual shape requests use sculpture and empty html. For apps or infrastructure create a useful complete interactive self-contained HTML document with inline CSS/JS, no external scripts, no external fonts, no tracking, and no secrets. Keep HTML below 120000 characters, title under 100 and message under 600. Do not claim deployment or real data integrations. Clearly label sample data. Use DOM textContent for user input. App requests must produce an app; infrastructure requests produce an app ready for a Node/Docker bundle. Keep all network requests absent except weather forecasts may use https://api.open-meteo.com.' },
+            { role: 'system', content: 'You are Cloudy, a creative app builder. Never generate pornography, invented harmful accusations, smear campaigns, or targeted harassment. Educational sexual health and neutral discussion of defamation are allowed. Return only a JSON object with shape, intent, title, message, html. shape must be one of cloud, heart, earth, planet, galaxy, mountain, castle, tree, dragon. Earth, Terra, homeworld, and Earth globes use the distinct earth shape; Saturn and generic planets use planet. intent must be sculpture, app, or infrastructure. For visual shape requests use sculpture and empty html. For apps or infrastructure create a useful complete interactive self-contained HTML document with inline CSS/JS, no external scripts, no external fonts, no tracking, and no secrets. Keep HTML below 120000 characters, title under 100 and message under 600. Do not claim deployment or real data integrations. Clearly label sample data. Use DOM textContent for user input. App requests must produce an app; infrastructure requests produce an app ready for a Node/Docker bundle. Keep all network requests absent except weather forecasts may use https://api.open-meteo.com.' },
             { role: 'user', content: cleanPrompt },
           ] }),
         });

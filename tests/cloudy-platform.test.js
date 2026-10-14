@@ -25,7 +25,7 @@ async function fixture(t, options = {}) {
 }
 
 test('classifies all sculptures, apps, and deployment requests', () => {
-  for (const shape of ['cloud', 'heart', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon']) {
+  for (const shape of ['cloud', 'heart', 'earth', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon']) {
     assert.equal(classifyPrompt(`Morph into a ${shape}`).shape, shape);
     assert.equal(classifyPrompt(`Morph into a ${shape}`).intent, 'sculpture');
   }
@@ -33,6 +33,23 @@ test('classifies all sculptures, apps, and deployment requests', () => {
   assert.equal(classifyPrompt('Make a portfolio website').intent, 'app');
   assert.equal(classifyPrompt('Deploy a dashboard in a container').intent, 'infrastructure');
   assert.equal(classifyPrompt('A completely new idea').intent, 'app');
+});
+
+test('Earth and its aliases morph into an Earth sculpture while Saturn and Earth apps retain their intent', async t => {
+  const { call } = await fixture(t);
+  for (const prompt of ['Earth', 'Terra', 'homeworld', 'globeEarth', 'Earth globe', 'planet Earth']) {
+    const response = await call('/morph', { prompt });
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.shape, 'earth'); assert.equal(result.intent, 'sculpture'); assert.equal(result.project, undefined);
+  }
+  const saturn = await (await call('/morph', { prompt: 'Saturn' })).json();
+  assert.equal(saturn.shape, 'planet'); assert.equal(saturn.intent, 'sculpture'); assert.equal(saturn.project, undefined);
+  assert.equal((await (await call('/projects')).json()).projects.length, 0);
+  const app = await call('/morph', { prompt: 'Build an Earth education website' });
+  assert.equal(app.status, 201);
+  const result = await app.json();
+  assert.equal(result.shape, 'earth'); assert.equal(result.intent, 'app'); assert.ok(result.project.id);
 });
 
 test('rejects malformed prompts and unsafe project identifiers', async t => {

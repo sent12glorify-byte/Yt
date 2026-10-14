@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iOS 1 - Hyperluminal Universal Explorer</title>
+    <title>Earth &amp; Universe — Universal Explorer</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23125fa8'/%3E%3Cpath d='M8 7l8-4 6 6-5 5-7-2-4 7 8 9 7-4 3-8-7-5Z' fill='%23739161'/%3E%3C/svg%3E">
     <style>
         body, html { 
             margin: 0; 
@@ -249,11 +250,68 @@
         .warp-active {
             animation: warp-pulse 0.3s infinite;
         }
+        [hidden] { display: none !important; }
+        #glCanvas { touch-action: none; }
+        #view-controls { position: fixed; z-index: 110; top: 18px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        #view-controls a, .view-toggle, #earth-controls button { color: #d7e9ff; background: rgba(7, 19, 38, .88); border: 1px solid #52769a; border-radius: 9px; padding: 11px 15px; font: 600 12px system-ui, sans-serif; cursor: pointer; text-decoration: none; }
+        #view-controls a:hover, .view-toggle:hover, #earth-controls button:hover { background: #1d3653; }
+        #view-controls button[aria-pressed="true"] { background: #1b5274; border-color: #82d7ef; }
+        .view-switch { display: flex; gap: 7px; margin-left: auto; }
+        #view-controls a:focus-visible, button:focus-visible { outline: 2px solid #a7e8ff; outline-offset: 3px; }
+        #earth-panel { position: fixed; z-index: 25; left: 24px; bottom: 24px; width: 285px; padding: 23px; border: 1px solid #426182; border-radius: 16px; background: rgba(7, 19, 38, .87); color: #e4efff; font: 13px/1.6 system-ui, sans-serif; backdrop-filter: blur(12px); }
+        #earth-panel h1 { font-size: 36px; line-height: 1.15; margin: 7px 0 9px; letter-spacing: -1px; }
+        #earth-panel p { margin: 0; color: #9fb9d2; }
+        .earth-eyebrow { color: #81d8e9; font-size: 10px; letter-spacing: 2px; }
+        .earth-facts { display: flex; gap: 22px; margin: 20px 0 14px; }
+        .earth-facts div { flex: 1; }
+        .earth-facts dt { color: #92abc6; font-size: 10px; }
+        .earth-facts dd { margin: 3px 0 0; font-weight: 650; white-space: nowrap; }
+        #earth-panel .simulation-note { font-size: 11px; color: #b1c2d6; }
+        #earth-controls { position: fixed; z-index: 30; right: 24px; bottom: 26px; display: flex; flex-direction: column; align-items: flex-end; gap: 9px; font: 11px system-ui, sans-serif; color: #a6bcd6; }
+        .earth-buttons { display: flex; gap: 6px; }
+        #earth-controls button { min-width: 42px; padding: 10px 12px; touch-action: manipulation; }
+        #earth-zoom { min-width: 48px; text-align: center; align-self: center; color: #e4efff; }
+        #graphics-fallback { position: fixed; z-index: 40; left: 50%; top: 48%; transform: translate(-50%, -50%); width: min(420px, 78vw); color: #c9e5ff; text-align: center; font: 15px/1.7 system-ui, sans-serif; }
+        #graphics-fallback strong { display: block; font-size: 23px; color: white; margin-bottom: 10px; }
+        body[data-view="earth"] #hud, body[data-view="earth"] #controls-info { display: none; }
+        body[data-view="universe"] #top-left, body[data-view="universe"] #top-right { top: 80px; }
+        @media (max-width: 700px) {
+            #view-controls { top: 14px; left: 14px; right: 14px; }
+            #view-controls a, .view-toggle { font-size: 11px; padding: 10px 12px; }
+            #earth-panel { box-sizing: border-box; top: 77px; bottom: auto; left: 14px; width: calc(100% - 28px); padding: 16px 19px; }
+            #earth-panel h1 { font-size: 27px; margin: 3px 0; }
+            #earth-panel > p:first-of-type { font-size: 12px; }
+            .earth-facts { margin: 10px 0 8px; gap: 10px; }
+            .earth-facts dd { font-size: 12px; }
+            #earth-panel .simulation-note { font-size: 10px; }
+            #earth-controls { right: 14px; left: 14px; bottom: 20px; align-items: center; }
+            #earth-controls button { padding: 11px; min-width: 43px; }
+            #top-right, #bottom-right, #speed-indicator { display: none; }
+            #top-left, #bottom-left { min-width: 0; padding: 9px; font-size: 10px; }
+            #controls-info { box-sizing: border-box; width: calc(100% - 30px); padding: 24px; font-size: 11px; }
+            #controls-info h1 { font-size: 21px; }
+        }
     </style>
 </head>
 <body>
 
-    <canvas id="glCanvas"></canvas>
+    <canvas id="glCanvas" tabindex="0" aria-label="Interactive simulated Earth and universe visualization"></canvas>
+    <nav id="view-controls" aria-label="Explorer views">
+        <a id="return-cloudy" href="./?shape=earth">← Return to Cloudy</a>
+        <div class="view-switch"><button class="view-toggle" id="earth-view-button" aria-pressed="false">Earth</button><button class="view-toggle" id="universe-view-button" aria-pressed="true">Universe</button></div>
+    </nav>
+    <section id="earth-panel" aria-label="Earth facts" hidden>
+        <span class="earth-eyebrow">OUR HOME IN THE UNIVERSE</span><h1>Planet Earth.</h1>
+        <p>A blue world, wrapped in a thin atmosphere.</p>
+        <dl class="earth-facts"><div><dt>Mean radius</dt><dd>6,371 km</dd></div><div><dt>Surface water</dt><dd>About 71%</dd></div><div><dt>From the Sun</dt><dd>149.6M km</dd></div></dl>
+        <p class="simulation-note">Simulated globe with simplified geography and procedural clouds. Not live satellite imagery.</p>
+    </section>
+    <div id="earth-controls" aria-label="Earth viewing controls" hidden>
+        <div class="earth-buttons"><button id="earth-left" aria-label="Orbit Earth left">←</button><button id="earth-up" aria-label="Orbit Earth up">↑</button><button id="earth-down" aria-label="Orbit Earth down">↓</button><button id="earth-right" aria-label="Orbit Earth right">→</button></div>
+        <div class="earth-buttons"><button id="earth-out" aria-label="Zoom Earth out">−</button><output id="earth-zoom" aria-label="Earth zoom">1.0×</output><button id="earth-in" aria-label="Zoom Earth in">+</button><button id="earth-reset">Reset view</button></div>
+        <span>Drag to orbit · Scroll or + / − to zoom · Arrow keys to explore</span>
+    </div>
+    <div id="graphics-fallback" role="status" hidden><strong>Your browser could not start the 3D view.</strong>Earth facts and the view controls are still available. Try a browser with WebGL 2 enabled to explore the globe.</div>
 
     <!-- HUD Display -->
     <div id="hud">
@@ -350,9 +408,21 @@
         const canvas = document.getElementById('glCanvas');
         const gl = canvas.getContext('webgl2', { antialias: true, precision: 'highp' });
 
-        if (!gl) {
-            alert('WebGL 2.0 not supported. Please use a modern browser.');
+        const embeddedEarth = window.CLOUDY_EARTH_MODE === true;
+        let viewingEarth = embeddedEarth || new URLSearchParams(location.search).get('view') === 'earth';
+        const earth = { yaw: 0.18, pitch: 0.06, distance: 4.6 };
+        function setExplorerView(mode) {
+            viewingEarth = mode === 'earth';
+            document.body.dataset.view = mode;
+            document.getElementById('earth-panel').hidden = !viewingEarth;
+            document.getElementById('earth-controls').hidden = !viewingEarth || !gl;
+            document.getElementById('earth-view-button').setAttribute('aria-pressed', String(viewingEarth));
+            document.getElementById('universe-view-button').setAttribute('aria-pressed', String(!viewingEarth));
+            if (viewingEarth) startExploration();
         }
+        if (embeddedEarth) document.getElementById('return-cloudy').hidden = true;
+        document.getElementById('earth-view-button').addEventListener('click', () => setExplorerView('earth'));
+        document.getElementById('universe-view-button').addEventListener('click', () => { setExplorerView('universe'); startExploration(); });
 
         let explorationStarted = false;
 
@@ -360,6 +430,12 @@
             document.getElementById('controls-info').style.display = 'none';
             explorationStarted = true;
         }
+        setExplorerView(viewingEarth ? 'earth' : 'universe');
+        if (!gl) {
+            document.getElementById('graphics-fallback').hidden = false;
+            document.getElementById('hud').hidden = true;
+            document.getElementById('controls-info').hidden = true;
+        } else {
 
         // ===== ADVANCED VERTEX SHADER - Spherical Rendering =====
         const vsSource = `#version 300 es
@@ -389,6 +465,9 @@
             uniform float u_roll;
             uniform vec3 u_position;
             uniform int u_thread_id;
+            uniform int u_earth_view;
+            uniform vec3 u_earth_camera;
+            uniform sampler2D u_earth_map;
 
             // Advanced 4D noise for cosmic structures
             float random(vec4 p) {
@@ -486,7 +565,49 @@
                 return vec3(0.0, 1.0, 1.0) * warp * intensity * 0.6;
             }
 
+            // A lit sphere with a locally drawn, simplified map; no remote imagery.
+            vec3 earthView(vec2 uv) {
+                vec3 ray = normalize(vec3(uv, -2.8));
+                vec3 camera = vec3(0.0, 0.0, u_earth_camera.z);
+                float b = dot(camera, ray);
+                float discriminant = b * b - dot(camera, camera) + 1.0;
+                vec3 background = vec3(0.008, 0.018, 0.038);
+                vec2 starCell = floor(gl_FragCoord.xy / 9.0);
+                float starSeed = random(vec4(starCell, 0.0, 1.0));
+                float starDistance = length(fract(gl_FragCoord.xy / 9.0) - 0.5);
+                background += vec3(0.62, 0.76, 0.95) * step(0.997, starSeed) * exp(-starDistance * 13.0) * 0.8;
+                float closest = sqrt(max(0.0, dot(camera, camera) - b * b));
+                float glow = exp(-max(closest - 1.0, 0.0) * 30.0);
+                if (discriminant < 0.0) return background + vec3(0.07, 0.29, 0.58) * glow * 0.45;
+                float distance = -b - sqrt(discriminant);
+                vec3 normal = normalize(camera + ray * distance);
+                vec3 geographic = rotateY(rotateX(normal, u_earth_camera.y), u_earth_camera.x);
+                vec2 mapUv = vec2(0.5 + atan(geographic.x, geographic.z) / 6.2831853, 0.5 - asin(clamp(geographic.y, -1.0, 1.0)) / 3.14159265);
+                vec3 surface = texture(u_earth_map, mapUv).rgb;
+                float land = step(surface.b, surface.g);
+                float terrain = noise(geographic * 24.0);
+                surface *= 0.83 + terrain * 0.3;
+                surface = mix(surface, vec3(0.82, 0.91, 0.94), smoothstep(0.87, 0.98, abs(geographic.y)));
+                vec3 light = normalize(vec3(-0.65, 0.65, 1.4));
+                float sun = max(dot(normal, light), 0.0);
+                vec3 color = surface * (0.10 + sun * 1.1);
+                float cloudNoise = noise(geographic * 8.0 + vec3(u_time * 0.008, 0.0, 0.0)) * 0.62 + noise(geographic * 19.0) * 0.26 + noise(geographic * 43.0) * 0.12;
+                float clouds = smoothstep(0.58, 0.75, cloudNoise) * 0.85;
+                color = mix(color, vec3(0.88, 0.95, 1.0) * (0.17 + sun * 0.95), clouds);
+                vec3 reflected = reflect(-light, normal);
+                float specular = pow(max(dot(reflected, -ray), 0.0), 45.0) * (1.0 - land) * (1.0 - clouds);
+                color += vec3(0.5, 0.72, 0.94) * specular * 0.38;
+                float atmosphere = pow(1.0 - max(dot(normal, -ray), 0.0), 3.0);
+                color += vec3(0.10, 0.40, 0.74) * atmosphere * (0.18 + sun * 0.6);
+                return color;
+            }
+
             void main() {
+                if (u_earth_view == 1) {
+                    vec2 earthUv = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
+                    outColor = vec4(earthView(earthUv), 1.0);
+                    return;
+                }
                 vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / u_resolution.y;
                 
                 // Apply 3D spherical rotations
@@ -575,8 +696,53 @@
             pitch: gl.getUniformLocation(program, 'u_pitch'),
             roll: gl.getUniformLocation(program, 'u_roll'),
             position: gl.getUniformLocation(program, 'u_position'),
-            thread_id: gl.getUniformLocation(program, 'u_thread_id')
+            thread_id: gl.getUniformLocation(program, 'u_thread_id'),
+            earth_view: gl.getUniformLocation(program, 'u_earth_view'),
+            earth_camera: gl.getUniformLocation(program, 'u_earth_camera'),
+            earth_map: gl.getUniformLocation(program, 'u_earth_map')
         };
+
+        // Hand-drawn geographic silhouettes keep the Earth view self-contained.
+        const mapCanvas = document.createElement('canvas');
+        mapCanvas.width = 1024; mapCanvas.height = 512;
+        const mapContext = mapCanvas.getContext('2d');
+        mapContext.fillStyle = '#125fa8'; mapContext.fillRect(0, 0, 1024, 512);
+        function continent(points, fill = '#4f8952') {
+            mapContext.beginPath();
+            points.forEach(([longitude, latitude], index) => {
+                const x = (longitude + 180) / 360 * 1024;
+                const y = (90 - latitude) / 180 * 512;
+                if (!index) mapContext.moveTo(x, y); else mapContext.lineTo(x, y);
+            });
+            mapContext.closePath(); mapContext.fillStyle = fill; mapContext.fill();
+        }
+        continent([[-17,36],[10,37],[34,31],[43,12],[51,11],[48,-12],[35,-26],[19,-35],[13,-24],[9,-3],[-10,5],[-17,17]], '#68915a');
+        continent([[-17,25],[-4,35],[10,36],[30,31],[39,17],[24,13],[12,19],[-5,17]], '#b9a77c');
+        continent([[-10,36],[-10,44],[-5,48],[-4,55],[6,58],[11,71],[25,71],[35,61],[45,55],[43,42],[30,35],[18,40],[9,43],[3,41]]);
+        continent([[28,40],[45,55],[36,68],[76,72],[110,73],[150,66],[179,62],[178,53],[153,50],[137,37],[127,34],[120,22],[109,17],[105,7],[96,7],[88,22],[80,7],[70,24],[60,25],[53,14],[43,12],[35,31]], '#6c9462');
+        continent([[44,32],[61,36],[88,44],[104,37],[99,28],[73,29],[61,20]], '#b6a47d');
+        continent([[-168,66],[-152,71],[-133,69],[-125,59],[-111,63],[-94,73],[-72,72],[-55,53],[-65,47],[-78,43],[-81,26],[-88,30],[-98,26],[-89,19],[-84,11],[-78,8],[-80,15],[-99,18],[-107,25],[-117,32],[-124,42],[-129,52],[-151,60],[-168,60]], '#739361');
+        continent([[-81,12],[-70,12],[-60,7],[-50,-1],[-35,-7],[-38,-18],[-49,-29],[-57,-39],[-67,-55],[-74,-51],[-76,-31],[-81,-8]], '#4c8650');
+        continent([[-74,60],[-49,59],[-22,70],[-25,81],[-47,84],[-63,77]], '#dce8e5');
+        continent([[113,-22],[122,-13],[132,-12],[137,-16],[143,-11],[153,-26],[150,-37],[138,-39],[128,-32],[116,-35]], '#b3a176');
+        continent([[-180,-72],[-120,-69],[-60,-74],[0,-69],[60,-70],[120,-68],[180,-72],[180,-90],[-180,-90]], '#dce8ed');
+        continent([[-8,50],[-6,58],[-2,59],[1,52]], '#709664');
+        continent([[-11,51],[-10,55],[-6,55],[-6,51]], '#709664');
+        continent([[130,31],[136,34],[142,44],[145,44],[140,35],[134,31]]);
+        continent([[47,-13],[51,-17],[49,-26],[44,-25]]);
+        continent([[95,5],[103,-2],[105,-6],[100,-4]]);
+        continent([[108,7],[118,7],[119,-4],[110,-4]]);
+        continent([[105,-6],[118,-7],[115,-9],[106,-8]]);
+        continent([[130,-3],[141,-2],[151,-7],[145,-10],[137,-7]]);
+        continent([[166,-34],[173,-40],[178,-39],[177,-43],[168,-47],[165,-44],[172,-41]]);
+        const earthTexture = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, earthTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mapCanvas);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.uniform1i(uniforms.earth_map, 0);
 
         // ===== HYPERDRIVE NAVIGATION SYSTEM =====
         const ship = {
@@ -607,15 +773,30 @@
             rollRight: false,
             reset: false
         };
+        function resetEarth() { earth.yaw = 0.18; earth.pitch = 0.06; earth.distance = 4.6; updateEarthZoom(); }
+        function updateEarthZoom() { document.getElementById('earth-zoom').textContent = `${(4.6 / earth.distance).toFixed(1)}×`; }
+        function zoomEarth(amount) { earth.distance = Math.max(2.8, Math.min(7.5, earth.distance + amount)); updateEarthZoom(); }
+        function orbitEarth(yaw, pitch) { earth.yaw += yaw; earth.pitch = Math.max(-1.35, Math.min(1.35, earth.pitch + pitch)); }
+        document.getElementById('earth-in').addEventListener('click', () => zoomEarth(-0.4));
+        document.getElementById('earth-out').addEventListener('click', () => zoomEarth(0.4));
+        document.getElementById('earth-reset').addEventListener('click', resetEarth);
+        document.getElementById('earth-left').addEventListener('click', () => orbitEarth(-0.25, 0));
+        document.getElementById('earth-right').addEventListener('click', () => orbitEarth(0.25, 0));
+        document.getElementById('earth-up').addEventListener('click', () => orbitEarth(0, 0.18));
+        document.getElementById('earth-down').addEventListener('click', () => orbitEarth(0, -0.18));
+        function isUiTarget(target) { return target instanceof Element && Boolean(target.closest('a, button, input, select, textarea')); }
 
         // Keyboard controls
         window.addEventListener('keydown', (e) => {
+            if (isUiTarget(e.target)) return;
             const key = e.key.toLowerCase();
+            if (viewingEarth && ['+', '=', '-', '_'].includes(key)) { zoomEarth(key === '+' || key === '=' ? -0.25 : 0.25); e.preventDefault(); return; }
+            if (key.startsWith('arrow')) e.preventDefault();
             if (key === 'arrowup' || key === 'w') controls.up = true;
             if (key === 'arrowdown' || key === 's') controls.down = true;
             if (key === 'arrowleft' || key === 'a') controls.left = true;
             if (key === 'arrowright' || key === 'd') controls.right = true;
-            if (key === ' ') { controls.accelerate = true; e.preventDefault(); }
+            if (key === ' ' && !viewingEarth) { controls.accelerate = true; e.preventDefault(); }
             if (key === 'q') controls.rollLeft = true;
             if (key === 'e') controls.rollRight = true;
             if (key === 'r') { controls.reset = true; e.preventDefault(); }
@@ -632,11 +813,11 @@
             if (key === 'e') controls.rollRight = false;
             if (key === 'r') controls.reset = false;
         });
+        window.addEventListener('blur', () => { Object.keys(controls).forEach(key => { controls[key] = false; }); });
 
         // Mouse control for fine orientation
-        let lastMouseX = 0, lastMouseY = 0;
-        window.addEventListener('mousemove', (e) => {
-            if (!explorationStarted) return;
+        canvas.addEventListener('mousemove', (e) => {
+            if (!explorationStarted || viewingEarth) return;
             const moveX = (e.movementX || 0) * 0.002;
             const moveY = (e.movementY || 0) * 0.002;
             ship.yaw += moveX;
@@ -644,13 +825,34 @@
             ship.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, ship.pitch));
         });
 
-        window.addEventListener('click', () => {
+        canvas.addEventListener('click', () => {
             if (!explorationStarted) startExploration();
         });
+        let drag = null;
+        canvas.addEventListener('pointerdown', (event) => {
+            if (!viewingEarth) return;
+            canvas.focus({ preventScroll: true });
+            drag = { x: event.clientX, y: event.clientY, id: event.pointerId };
+            canvas.setPointerCapture(event.pointerId);
+        });
+        canvas.addEventListener('pointermove', (event) => {
+            if (!viewingEarth || !drag || drag.id !== event.pointerId) return;
+            orbitEarth((event.clientX - drag.x) * 0.007, (event.clientY - drag.y) * 0.007);
+            drag.x = event.clientX; drag.y = event.clientY;
+        });
+        function stopDragging() { drag = null; }
+        canvas.addEventListener('pointerup', stopDragging);
+        canvas.addEventListener('pointercancel', stopDragging);
+        canvas.addEventListener('wheel', (event) => {
+            if (!viewingEarth) return;
+            event.preventDefault(); zoomEarth(event.deltaY * 0.004);
+        }, { passive: false });
 
         function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            // Cap render size for software GPUs while preserving the viewport ratio.
+            const scale = Math.min(1, 1200 / Math.max(window.innerWidth, window.innerHeight));
+            canvas.width = Math.max(1, Math.round(window.innerWidth * scale));
+            canvas.height = Math.max(1, Math.round(window.innerHeight * scale));
             gl.viewport(0, 0, canvas.width, canvas.height);
         }
         
@@ -713,6 +915,20 @@
                 requestAnimationFrame(render);
                 return;
             }
+            if (viewingEarth) {
+                if (controls.left) orbitEarth(-0.025, 0);
+                if (controls.right) orbitEarth(0.025, 0);
+                if (controls.up) orbitEarth(0, 0.025);
+                if (controls.down) orbitEarth(0, -0.025);
+                if (controls.reset) resetEarth();
+                gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+                gl.uniform1f(uniforms.time, time);
+                gl.uniform1i(uniforms.earth_view, 1);
+                gl.uniform3f(uniforms.earth_camera, earth.yaw, earth.pitch, earth.distance);
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+                requestAnimationFrame(render);
+                return;
+            }
 
             // Spherical navigation controls
             if (controls.left) ship.yaw -= ship.rotationSpeed;
@@ -755,6 +971,7 @@
 
             // Push uniforms to GPU
             gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+            gl.uniform1i(uniforms.earth_view, 0);
             gl.uniform1f(uniforms.time, time);
             gl.uniform1f(uniforms.speed, Math.min(ship.speed / 2, 1.0)); // Normalize for shader
             gl.uniform1f(uniforms.yaw, ship.yaw);
@@ -770,6 +987,7 @@
         }
 
         requestAnimationFrame(render);
+        }
     </script>
 </body>
 </html>

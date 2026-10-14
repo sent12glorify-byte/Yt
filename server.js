@@ -15,8 +15,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.get('/', (req, res) => res.redirect('/cloud/'));
+app.get('/', (req, res) => res.redirect(req.query.shape === 'earth' ? '/cloud/?shape=earth' : '/cloud/'));
 app.use('/cloud', express.static(`${__dirname}/cloud`));
+app.get('/universal-explorer.html', (req, res) => res.sendFile(`${__dirname}/universal-explorer.html`));
 app.use(express.static('public'));
 app.use(express.json());
 app.use('/api/cloudy', createCloudyRouter());

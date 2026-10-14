@@ -11,7 +11,9 @@ npm install --package-lock=false
 npm start
 ```
 
-Open `/cloud/` on the running server. No external scripts, fonts, or graphics are needed. The canvas supports cloud, heart, planet, galaxy, mountain, castle, tree, and dragon sculptures, three atmospheres, wind, motion controls, and PNG export. Reduced-motion preferences are respected.
+Open `/cloud/` on the running server. No external scripts, fonts, or graphics are needed. The canvas supports Earth, cloud, heart, planet, galaxy, mountain, castle, tree, and dragon sculptures, three atmospheres, wind, motion controls, and PNG export. Reduced-motion preferences are respected. Earth is a blue-and-green illustrated globe, distinct from the ringed planet sculpture.
+
+Ask for `Earth`, select **Earth globe** in cloud controls, or open `/cloud/?shape=earth`. **Explore Earth** opens the original iOS 1 space explorer in an Earth-focused view, with orbit and zoom controls. The explorer remains available directly at `/universal-explorer.html?view=earth`. Both Earth views are illustrations/simulations, not live satellite imagery.
 
 The local creation engine creates interactive task boards, dashboards, portfolios/landing pages, sample stores, and weather apps. Arbitrary prompts use a starter template unless the optional AI engine is connected. Weather requests need access to `api.open-meteo.com`; failures are shown inside the generated app.
 
@@ -26,6 +28,8 @@ node scripts/build-preview.mjs
 ```
 
 Open `dist/Cloudy-preview.html` in a browser. This single file includes the renderer, UI, and local creation engine. It keeps projects in browser storage rather than on the server. No AI credentials or server files are embedded. Both editions export a `.tar` archive containing a working app, Dockerfile, Node server, and deployment instructions.
+
+The original explorer is embedded in the single-file edition, so **Explore Earth** works without an additional download or network request. To create an edition that starts on Earth, run `node scripts/build-preview.mjs dist/Cloudy-Earth.html earth`.
 
 The checked-in root `index.html` is this browser edition, so the existing GitHub Pages workflow publishes a functional Cloudy homepage. Refresh it with `node scripts/build-preview.mjs index.html`. The original iOS 1 static explorer is preserved as `universal-explorer.html`. Pages provides the browser edition; use Node hosting for server-side AI and project persistence.
 

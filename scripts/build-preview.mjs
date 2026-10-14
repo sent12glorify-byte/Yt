@@ -6,12 +6,15 @@ import { fileURLToPath } from 'node:url';
 // The server edition retains server-side persistence and optional AI integration.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.resolve(process.argv[2] || path.join(root, 'dist', 'Cloudy-preview.html'));
-const [html, css, rendererSource, appSource, platformSource] = await Promise.all([
+const initialShape = process.argv[3] || '';
+if (initialShape && initialShape !== 'earth') throw new Error('The optional initial shape must be earth.');
+const [html, css, rendererSource, appSource, platformSource, explorerSource] = await Promise.all([
   readFile(path.join(root, 'cloud/index.html'), 'utf8'),
   readFile(path.join(root, 'cloud/styles.css'), 'utf8'),
   readFile(path.join(root, 'cloud/renderer.js'), 'utf8'),
   readFile(path.join(root, 'cloud/app.js'), 'utf8'),
   readFile(path.join(root, 'cloudy-platform.js'), 'utf8'),
+  readFile(path.join(root, 'universal-explorer.html'), 'utf8'),
 ]);
 const renderer = rendererSource.replace(/^export default CloudRenderer;?\s*$/m, '').replace(/^export /gm, '');
 const localEngine = platformSource.slice(0, platformSource.indexOf('export function createCloudyRouter(')).replace(/^import .*\n/gm, '').replace(/^export /gm, '');
@@ -54,7 +57,9 @@ app = app.slice(0, apiStart) + browserApi + '\n' + app.slice(apiEnd);
 app = app.replace("$('#preview-frame').src = project.previewUrl;", "$('#preview-frame').srcdoc = previewProjects.find(p => p.id === project.id)?.html || '';" );
 app = app.replace("$('#preview-frame').src = 'about:blank';", "$('#preview-frame').removeAttribute('srcdoc'); $('#preview-frame').src = 'about:blank';");
 app = app.replaceAll('Local creation engine', 'Browser creation engine');
-const script = `${localEngine}\n${renderer}\n${app}`.replace(/<\/script/gi, '<\\/script');
+const embeddedExplorer = explorerSource.replace('</head>', '<script>window.CLOUDY_EARTH_MODE = true;</script></head>');
+const explorerSetup = `window.CLOUDY_EARTH_EXPLORER = ${JSON.stringify(embeddedExplorer).replace(/</g, '\\u003c')};\nwindow.CLOUDY_INITIAL_SHAPE = ${JSON.stringify(initialShape)};`;
+const script = `${explorerSetup}\n${localEngine}\n${renderer}\n${app}`.replace(/<\/script/gi, '<\\/script');
 let preview = html.replace('<link rel="stylesheet" href="styles.css">', () => `<style>${css}</style>`).replace('  <script type="module" src="app.js"></script>', '');
 preview = preview.replace('href="./"', 'href="#"').replaceAll('Local creation engine', 'Browser creation engine').replaceAll('Local environment', 'Browser workspace').replace('Local runtime', 'Browser runtime').replace('<strong>Node.js</strong>', '<strong>Browser</strong>').replace('Running in your workspace', 'Running on this device').replace('Saved to this environment', 'Saved in this browser');
 preview = preview.replace('</body>', () => `<script>${script}</script>\n</body>`);

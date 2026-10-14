@@ -5,7 +5,7 @@
  * cloudy.setShape('heart'); cloudy.setAtmosphere('sunset');
  */
 export const supportedShapes = Object.freeze([
-  'cloud', 'heart', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon',
+  'cloud', 'heart', 'planet', 'galaxy', 'mountain', 'castle', 'tree', 'dragon', 'earth',
 ]);
 
 const TAU = Math.PI * 2;
@@ -44,6 +44,98 @@ function along(rng, points, width = 0.06) {
   return { x: mix(a[0], b[0], t) + (rng() - 0.5) * width, y: mix(a[1], b[1], t) + (rng() - 0.5) * width, z: (rng() - 0.5) * 0.3 };
 }
 
+// Simplified geographic outlines are painted locally, then projected onto a sphere.
+// This is an illustration, with no remote imagery or network dependency.
+function makeEarthTexture() {
+  const width = 1024;
+  const height = 512;
+  const texture = document.createElement('canvas');
+  texture.width = width;
+  texture.height = height;
+  const ctx = texture.getContext('2d', { willReadFrequently: true });
+  const ocean = ctx.createLinearGradient(0, 0, 0, height);
+  ocean.addColorStop(0, '#164c86');
+  ocean.addColorStop(0.36, '#168bbb');
+  ocean.addColorStop(0.65, '#087db2');
+  ocean.addColorStop(1, '#134b84');
+  ctx.fillStyle = ocean;
+  ctx.fillRect(0, 0, width, height);
+  const land = document.createElement('canvas');
+  land.width = width;
+  land.height = height;
+  const terrain = land.getContext('2d');
+  const coordinates = (longitude, latitude) => [(longitude + 180) / 360 * width, (90 - latitude) / 180 * height];
+  const polygon = (context, points, fill, outline = false) => {
+    context.beginPath();
+    points.forEach(([longitude, latitude], i) => {
+      const [x, y] = coordinates(longitude, latitude);
+      if (i) context.lineTo(x, y); else context.moveTo(x, y);
+    });
+    context.closePath();
+    context.fillStyle = fill;
+    context.fill();
+    if (outline) { context.strokeStyle = '#c0d59b77'; context.lineWidth = 1.4; context.stroke(); }
+  };
+  const continents = [
+    [[-168,72],[-154,70],[-151,63],[-140,60],[-130,54],[-126,49],[-124,41],[-117,32],[-112,28],[-106,24],[-98,20],[-90,17],[-86,20],[-82,24],[-81,29],[-76,35],[-71,43],[-60,47],[-53,52],[-59,58],[-68,60],[-75,67],[-85,69],[-95,75],[-111,74],[-127,70],[-145,73]],
+    [[-81,12],[-73,11],[-65,8],[-60,5],[-51,4],[-48,-2],[-35,-6],[-38,-15],[-42,-23],[-49,-29],[-53,-34],[-60,-39],[-65,-55],[-70,-53],[-75,-40],[-72,-27],[-76,-15],[-80,-4]],
+    [[-17,36],[-5,36],[7,37],[12,33],[25,32],[33,29],[35,23],[43,12],[51,11],[45,1],[42,-12],[35,-22],[29,-32],[21,-35],[16,-29],[12,-18],[8,-3],[0,5],[-10,5],[-16,15],[-17,25]],
+    [[-10,36],[-10,44],[-2,43],[0,49],[-5,50],[5,55],[10,57],[8,62],[13,70],[25,71],[31,66],[30,59],[43,54],[36,45],[28,41],[23,37],[15,41],[10,45],[4,43],[2,37]],
+    [[25,71],[40,69],[60,70],[87,76],[106,78],[125,74],[142,69],[163,66],[178,62],[179,51],[163,58],[151,55],[142,49],[135,44],[129,38],[122,30],[121,20],[113,21],[108,12],[103,1],[99,8],[94,18],[89,22],[80,8],[73,15],[68,25],[58,25],[53,16],[44,12],[34,30],[36,42],[42,50],[30,59]],
+    [[113,-22],[122,-17],[131,-12],[140,-14],[145,-20],[153,-28],[147,-38],[138,-38],[131,-32],[120,-35],[115,-29]],
+    [[49,-12],[51,-17],[47,-25],[44,-24],[45,-16]],
+    [[-8,50],[-6,58],[-2,59],[1,52]], [[-25,64],[-23,67],[-15,66],[-14,64]],
+    [[130,31],[138,35],[143,43],[146,45],[141,42],[137,36],[132,33]],
+    [[95,5],[105,-5],[102,-7],[96,0]], [[108,7],[117,6],[119,0],[114,-4],[109,0]],
+    [[130,-3],[140,-3],[150,-7],[146,-10],[136,-7]], [[166,-34],[174,-39],[178,-41],[172,-43],[166,-47],[164,-44],[170,-40]],
+    [[-85,23],[-74,21],[-77,19],[-85,20]], [[-74,20],[-67,19],[-68,17],[-73,18]],
+  ];
+  const greenery = terrain.createLinearGradient(0, 0, 0, height);
+  greenery.addColorStop(0, '#a6bd94');
+  greenery.addColorStop(0.35, '#72b385');
+  greenery.addColorStop(0.55, '#53a578');
+  greenery.addColorStop(0.75, '#80ad7a');
+  greenery.addColorStop(1, '#b2c4b3');
+  for (const continent of continents) polygon(terrain, continent, greenery, true);
+  terrain.globalCompositeOperation = 'source-atop';
+  polygon(terrain, [[-17,30],[5,34],[24,29],[34,24],[33,17],[18,14],[0,17],[-15,20]], '#d9c392');
+  polygon(terrain, [[36,30],[53,27],[59,21],[52,13],[43,17]], '#cdbb8d');
+  polygon(terrain, [[115,-21],[135,-18],[144,-25],[138,-32],[122,-30]], '#c7ad7a');
+  polygon(terrain, [[-79,5],[-61,5],[-50,-7],[-59,-17],[-72,-13]], '#38986a');
+  polygon(terrain, [[-116,45],[-108,43],[-103,25],[-111,25],[-119,38]], '#b5b98b');
+  const rng = randomGenerator(3128);
+  for (let i = 0; i < 1700; i++) {
+    const x = rng() * width;
+    const y = rng() * height;
+    const radius = 2 + rng() * 11;
+    const variation = terrain.createRadialGradient(x, y, 0, x, y, radius);
+    variation.addColorStop(0, i % 2 ? '#e4dbb529' : '#07593724');
+    variation.addColorStop(1, '#579c6500');
+    terrain.fillStyle = variation;
+    terrain.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+  ctx.drawImage(land, 0, 0);
+  polygon(ctx, [[-73,60],[-50,60],[-38,67],[-21,76],[-27,83],[-45,84],[-62,78]], '#dbe9e9');
+  polygon(ctx, [[-180,-74],[-150,-71],[-124,-73],[-100,-73],[-77,-66],[-59,-71],[-40,-75],[-15,-72],[15,-71],[39,-69],[70,-71],[100,-67],[128,-68],[153,-73],[180,-74],[180,-90],[-180,-90]], '#e0ecee');
+  // Wispy weather bands, intentionally softer than the land underneath them.
+  ctx.lineCap = 'round';
+  ctx.filter = 'blur(1.2px)';
+  for (let i = 0; i < 85; i++) {
+    const x = rng() * width;
+    const y = 38 + rng() * (height - 76);
+    const length = 12 + rng() * 72;
+    const direction = rng() < 0.5 ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(x - length * 0.5, y);
+    ctx.bezierCurveTo(x - length * 0.2, y - direction * 15, x + length * 0.1, y + direction * 12, x + length * 0.5, y - direction * 4);
+    ctx.strokeStyle = `rgba(249,253,255,${0.18 + rng() * 0.34})`;
+    ctx.lineWidth = 1.3 + rng() * 6;
+    ctx.stroke();
+  }
+  ctx.filter = 'none';
+  return { width, height, pixels: ctx.getImageData(0, 0, width, height).data };
+}
+
 function sampleShape(name, rng, index, count) {
   const section = index / count;
   if (name === 'cloud') {
@@ -63,6 +155,11 @@ function sampleShape(name, rng, index, count) {
       y: -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 26 * d - 0.035,
       z: (rng() - 0.5) * 0.45, radius: 0.78,
     };
+  }
+  if (name === 'earth') {
+    const point = volume(rng, 0, 0, 0.54, 0.54, 0.45);
+    point.radius = 0.62;
+    return point;
   }
   if (name === 'planet') {
     if (section < 0.62) return volume(rng, 0, 0, 0.47, 0.47, 0.44);
@@ -131,6 +228,10 @@ export class CloudRenderer {
     this.disposed = false;
     this.elapsed = 0;
     this.lastFrame = 0;
+    this.earthMix = 0;
+    this.earthFrom = 0;
+    this.earthTarget = 0;
+    this.earthLongitude = -25 * Math.PI / 180;
     this.count = 370;
     this.particles = [];
     const rng = randomGenerator(137);
@@ -232,6 +333,8 @@ export class CloudRenderer {
   setShape(name) {
     const next = String(name || 'cloud').toLowerCase();
     this.shape = supportedShapes.includes(next) ? next : 'cloud';
+    this.earthFrom = this.earthMix;
+    this.earthTarget = this.shape === 'earth' ? 1 : 0;
     this.from = this.particles.map(p => ({ x: p.x, y: p.y, z: p.z, radius: p.radiusScale }));
     const rng = randomGenerator(137 + supportedShapes.indexOf(this.shape) * 79);
     this.target = this.particles.map((_, i) => sampleShape(this.shape, rng, i, this.count));
@@ -266,6 +369,8 @@ export class CloudRenderer {
     const duration = this.reducedMotion ? 350 : 1750;
     const progress = clamp((now - this.transitionStart) / duration, 0, 1);
     const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+    this.earthMix = mix(this.earthFrom, this.earthTarget, eased);
+    if (this.motion && this.earthMix > 0) this.earthLongitude += delta * 0.032;
     for (let i = 0; i < this.count; i++) {
       const point = this.particles[i];
       const from = this.from[i];
@@ -303,6 +408,8 @@ export class CloudRenderer {
     ctx.fillStyle = glow;
     ctx.fillRect(cx - scale * 1.1, cy - scale * 1.1, scale * 2.2, scale * 2.2);
     ctx.restore();
+    if (this.earthMix > 0.001) this.drawEarth(cx, cy, scale, this.earthMix);
+    if (this.earthMix > 0.999) return;
     const ordered = [...this.particles].sort((a, b) => a.z - b.z);
     for (const particle of ordered) {
       const wave = this.motion ? Math.sin(t * (0.24 + this.wind * 0.35) + particle.seed) : 0;
@@ -310,10 +417,102 @@ export class CloudRenderer {
       const y = cy + (particle.y + Math.cos(t * 0.34 + particle.seed) * movement * (this.motion ? 1 : 0) + particle.z * this.parallax.y * 0.04) * scale;
       const radius = particle.baseRadius * particle.radiusScale * scale * (1 + particle.z * 0.19 + wave * 0.025);
       const shade = clamp(Math.round(4.5 - particle.y * 7 + particle.z * 2.5), 0, 8);
-      ctx.globalAlpha = particle.alpha;
+      ctx.globalAlpha = particle.alpha * (1 - this.earthMix);
       ctx.drawImage(this.sprites[shade][particle.variant], x - radius * 1.22, y - radius * 1.22, radius * 2.44, radius * 2.44);
     }
     ctx.globalAlpha = 1;
+  }
+
+  prepareEarthProjection(size) {
+    this.earthTexture ||= makeEarthTexture();
+    const surface = document.createElement('canvas');
+    surface.width = size;
+    surface.height = size;
+    const context = surface.getContext('2d');
+    const pixels = context.createImageData(size, size);
+    const capacity = size * size;
+    const projection = {
+      offset: new Int32Array(capacity), u: new Float32Array(capacity), row: new Int32Array(capacity),
+      light: new Float32Array(capacity), specular: new Float32Array(capacity),
+      air: new Float32Array(capacity), alpha: new Uint8Array(capacity), count: 0,
+    };
+    const tilt = 16 * Math.PI / 180;
+    const cosTilt = Math.cos(tilt);
+    const sinTilt = Math.sin(tilt);
+    const radius = size / 2 - 1;
+    for (let y = 0; y < size; y++) {
+      const ny = (y + 0.5 - size / 2) / radius;
+      for (let x = 0; x < size; x++) {
+        const nx = (x + 0.5 - size / 2) / radius;
+        const distance = nx * nx + ny * ny;
+        if (distance > 1) continue;
+        const nz = Math.sqrt(1 - distance);
+        const latitude = Math.asin(-ny * cosTilt + nz * sinTilt);
+        const longitude = Math.atan2(nx, ny * sinTilt + nz * cosTilt);
+        const light = nx * -0.57 + ny * -0.46 + nz * 0.68;
+        const half = Math.max(0, nx * -0.315 + ny * -0.254 + nz * 0.913);
+        const i = projection.count++;
+        projection.offset[i] = (y * size + x) * 4;
+        projection.u[i] = (longitude / TAU + 0.5) * this.earthTexture.width;
+        projection.row[i] = clamp(Math.floor((0.5 - latitude / Math.PI) * this.earthTexture.height), 0, this.earthTexture.height - 1) * this.earthTexture.width * 4;
+        projection.light[i] = 0.18 + 0.87 * Math.max(0, light);
+        projection.specular[i] = Math.pow(half, 28) * 42;
+        projection.air[i] = Math.pow(1 - nz, 3) * (0.25 + Math.max(0, light) * 0.75);
+        projection.alpha[i] = Math.round(clamp((1 - Math.sqrt(distance)) * radius, 0, 1) * 255);
+      }
+    }
+    this.earthSurface = { canvas: surface, context, pixels, projection, size };
+    this.earthLastAngle = NaN;
+  }
+
+  drawEarth(cx, cy, scale, opacity) {
+    const ctx = this.ctx;
+    const radius = Math.min(scale * 0.72, this.height * 0.355, this.width * 0.32);
+    const resolution = Math.round(clamp(radius * this.dpr * 2, 220, this.width < 600 ? 360 : 420));
+    if (!this.earthSurface || this.earthSurface.size !== resolution) this.prepareEarthProjection(resolution);
+    const angle = this.earthLongitude + this.parallax.x * 0.25;
+    if (!Number.isFinite(this.earthLastAngle) || Math.abs(angle - this.earthLastAngle) > 0.0015) {
+      const { pixels, projection, context } = this.earthSurface;
+      const source = this.earthTexture.pixels;
+      const output = pixels.data;
+      const width = this.earthTexture.width;
+      // A cached spherical projection keeps rotation inexpensive on mobile.
+      const offset = ((angle / TAU * width) % width + width) % width;
+      for (let i = 0; i < projection.count; i++) {
+        const u = Math.floor(projection.u[i] + offset) % width;
+        const index = projection.row[i] + u * 4;
+        const target = projection.offset[i];
+        const light = projection.light[i];
+        const air = projection.air[i];
+        const ocean = source[index + 2] > source[index + 1] * 1.1 && source[index] < source[index + 2] * 0.65;
+        const reflection = ocean ? projection.specular[i] : 0;
+        output[target] = source[index] * light + reflection + air * 21;
+        output[target + 1] = source[index + 1] * light + reflection * 0.94 + air * 104;
+        output[target + 2] = source[index + 2] * light + reflection * 0.78 + air * 174;
+        output[target + 3] = projection.alpha[i];
+      }
+      context.putImageData(pixels, 0, 0);
+      this.earthLastAngle = angle;
+    }
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    const halo = ctx.createRadialGradient(cx, cy, radius * 0.74, cx, cy, radius * 1.13);
+    halo.addColorStop(0, 'rgba(105,184,255,0)');
+    halo.addColorStop(0.58, 'rgba(91,177,255,0.06)');
+    halo.addColorStop(0.76, 'rgba(122,207,255,0.30)');
+    halo.addColorStop(1, 'rgba(73,143,252,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 1.14, 0, TAU);
+    ctx.fill();
+    ctx.drawImage(this.earthSurface.canvas, cx - radius, cy - radius, radius * 2, radius * 2);
+    // A fine blue atmosphere defines the limb without giving Earth a ring.
+    ctx.strokeStyle = 'rgba(151,220,255,0.30)';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.995, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
   }
 
   capture() {
