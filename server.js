@@ -5,6 +5,7 @@ import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createCloudyRouter } from './cloudy-platform.js';
+import { createArenaRoomsRouter } from './arena-rooms.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -15,10 +16,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.get('/', (req, res) => res.redirect(req.query.shape === 'earth' ? '/cloud/?shape=earth' : '/cloud/'));
+app.get('/', (req, res) => res.redirect(req.query.shape === 'earth' ? '/cloud/?shape=earth' : '/arena/'));
 app.use('/cloud', express.static(`${__dirname}/cloud`));
 app.get('/universal-explorer.html', (req, res) => res.sendFile(`${__dirname}/universal-explorer.html`));
+app.get('/arena/Heavenward.html', (req, res) => res.download(`${__dirname}/dist/Heavenward.html`, 'Heavenward.html'));
 app.use(express.static('public'));
+app.use('/api/arena', createArenaRoomsRouter());
 app.use(express.json());
 app.use('/api/cloudy', createCloudyRouter());
 
@@ -169,6 +172,7 @@ app.get('/api/nasa/apod', async (req, res) => {
 });
 
 app.listen(PORT, () => {
+  console.log(`Heavenward arena running on port ${PORT} — /arena/`);
   console.log(`☁ Cloudy platform running on port ${PORT} — /cloud/`);
   console.log(`🚀 Cosmic Web Explorer running on http://localhost:${PORT}`);
   console.log(`📍 Starting position: Earth (2026-07-16 05:11 AM UTC)`);

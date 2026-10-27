@@ -1,6 +1,16 @@
+# Heavenward — Egyptian Angel Arena
+
+The default Node server page is now **Heavenward**, an original playable arena prototype about an Egyptian angel defending Heaven. Run `npm start`, then use `/arena/`. Play starts immediately as the invincible Creator in Heaven’s Fields. Choose arena opens five additional combat styles, four arenas, three mission types, freelance contracts, and free four-player co-op rooms. Keyboard/mouse and touch controls are included. Fictional gold buys upgrades saved locally in your browser; there are no real-money transactions.
+
+Run `node --test tests/*.test.js` to validate both the game simulation and the existing Cloudy platform. Build a standalone offline game with `node scripts/build-arena.mjs`; open `dist/Heavenward.html` directly in a browser. See [game controls and scope](public/arena/README.md).
+
+This is a stylized prototype with solo and cooperative battles against bots. The GitHub Pages workflow builds the standalone web edition, cover gallery, action videos, and downloadable ZIP. The web edition includes browser-hosted WebRTC rooms (beta); the host keeps the game open and connectivity depends on the players’ networks. The Node edition also supports server-hosted rooms. Xbox-style controller input is included for browsers; this is not a certified native Xbox release. It does not include motion capture, photorealism, or copied content from other video games.
+
+---
+
 # ☁ Cloudy — A space for possibility
 
-The development server now opens **Cloudy**, a fullscreen cloud studio with JPEG glimmers, custom morphs, PNG/video capture, and a downloadable morph journal, plus a prompt-driven app workspace and hosting bundle builder. Run `npm start` and visit `/cloud/`. The original server-side explorer is retained at `/index.html`; the original iOS 1 static explorer is preserved in `universal-explorer.html`.
+The development server also provides **Cloudy**, a fullscreen cloud studio with JPEG glimmers, custom morphs, PNG/video capture, and a downloadable morph journal, plus a prompt-driven app workspace and hosting bundle builder. Run `npm start` and visit `/cloud/`. The original server-side explorer is retained at `/index.html`; the original iOS 1 static explorer is preserved in `universal-explorer.html`.
 
 See [Cloudy setup, browser preview, and hosting instructions](cloud/README.md). To create a browser-openable single-file preview, run `node scripts/build-preview.mjs`. The repository's root `index.html` is that self-contained browser edition for GitHub Pages. Refresh it with `node scripts/build-preview.mjs index.html` after changing Cloudy.
 

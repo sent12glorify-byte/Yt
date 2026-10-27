@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#09151d">
+  <meta name="description" content="An original Egyptian angel arena game. Choose your oath, take a freelance contract, and defend the gates of Heaven.">
+  <title>Heavenward — Egyptian Angel Arena</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="masthead">
+      <a class="brand" href="./" aria-label="Heavenward home">
+        <svg class="brand-mark" viewBox="0 0 68 58" fill="none" aria-hidden="true"><path d="M33 46V22M23 17h22M34 8c-10 0-10 13 0 14 10-1 10-14 0-14Z" stroke="currentColor" stroke-width="2.2"/><path d="m29 28-18-9L3 5l23 10 8 10 8-10L65 5l-8 14-18 9M27 34 12 29 5 20l22 9M41 34l15-5 7-9-22 9M28 40l-12-3-4-6 16 4M40 40l12-3 4-6-16 4" stroke="currentColor" stroke-width="1.7"/><circle cx="34" cy="48" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span><strong>HEAVENWARD</strong><span class="brand-subtitle">EGYPTIAN ANGEL ARENA</span></span>
+      </a>
+      <div class="edition"><span class="status-light"></span>Solo &amp; free co-op <span class="edition-divider">·</span> local progression</div>
+      <nav class="toolbar" aria-label="Game controls">
+        <a id="download-game" class="tool-button" href="Heavenward.html" download="Heavenward.html">Download</a>
+        <a class="tool-button" href="gallery.html">Cover &amp; action</a>
+        <button id="sound" class="tool-button" type="button" aria-label="Toggle sound" aria-pressed="false">Sound <span aria-hidden="true">♫</span></button>
+        <button id="help" class="tool-button" type="button" aria-controls="help-panel" aria-expanded="false">Controls <span aria-hidden="true">?</span></button>
+        <button id="setup" class="tool-button" type="button" aria-controls="menu">Choose arena <span aria-hidden="true">☷</span></button>
+        <button id="fullscreen" class="tool-button icon-button" type="button" aria-label="Toggle fullscreen">⛶</button>
+        <button id="pause" class="tool-button icon-button" type="button" aria-label="Pause game">Ⅱ</button>
+      </nav>
+    </header>
+
+    <main>
+      <div class="intro-line"><span class="eyebrow">THE CELESTIAL FRONTIER</span><span class="intro-message">Every soul deserves a guardian.</span><span class="chapter">CHAPTER I <span>—</span> THE OPEN GATE</span></div>
+      <section class="game-stage" aria-label="Arena and game setup">
+        <canvas id="arena" tabindex="0" aria-label="Heavenward arena. WASD moves; mouse aims; click or Space attacks; Shift dashes; Q uses a special; C crouches; F guards; E jumps; R reloads; right mouse focuses aim. Select Controls for the full guide.">Your browser needs HTML canvas support to play Heavenward.</canvas>
+        <div class="stage-vignette" aria-hidden="true"></div>
+
+        <div class="game-hud">
+          <div class="vitals">
+            <div class="vital-heading"><span class="mini-sigil" aria-hidden="true">✦</span><span id="class-label">The Creator</span><span id="game-session" class="session-badge">Solo</span></div>
+            <div class="vital-row"><span class="vital-name">VITALITY</span><div class="meter health-meter"><div id="health-fill" class="meter-fill" style="width:100%"></div></div><span id="health-text" class="vital-number">100 / 100</span></div>
+            <div class="vital-row"><span class="vital-name">RADIANCE</span><div class="meter mana-meter"><div id="mana-fill" class="meter-fill" style="width:100%"></div></div><span id="mana-text" class="vital-number">100 / 100</span></div>
+          </div>
+          <div class="match-numbers"><div><span class="number-label">WAVE</span><strong id="wave">01</strong></div><div><span class="number-label">SCORE</span><strong id="score">0</strong></div><div><span class="number-label">ESSENCE</span><strong id="essence">0</strong></div></div>
+        </div>
+
+        <aside id="menu" class="menu-panel glass-panel" aria-label="Choose your mission">
+          <div class="menu-content">
+          <div class="panel-kicker"><span class="tiny-rule"></span> ANSWER THE CALL</div>
+          <h1>Heaven needs<br><em>your wings.</em></h1>
+          <p class="menu-description">An open gate. A gathering darkness. Take a contract and carve your legend into the stars.</p>
+
+          <section class="room-setup" aria-label="Free multiplayer setup">
+            <div class="room-setup-heading"><h2>Gather your guardians.</h2><span class="free-badge">FREE CO-OP</span></div>
+            <label class="room-label" for="player-name">Your name</label>
+            <div class="host-room-row"><input id="player-name" type="text" maxlength="24" value="Guardian" autocomplete="nickname" aria-label="Your name"><button id="create-room" type="button" class="room-button">Host free co-op</button></div>
+            <label class="room-label" for="room-code">Room code</label>
+            <div class="join-room-row"><input id="room-code" type="text" maxlength="6" placeholder="ABC123" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Room code"><button id="join-room" type="button" class="room-button">Join room <span aria-hidden="true">↗</span></button></div>
+            <p class="room-setup-note">Invite friends to this game server. All gold is virtual. No account required.</p>
+          </section>
+
+          <fieldset class="choice-group"><legend><span>01</span> Choose your oath</legend><div class="choice-options class-options">
+            <button type="button" data-class="creator" class="choice selected creator-choice" aria-pressed="true"><span class="choice-symbol" aria-hidden="true">☥</span><strong>The Creator</strong><small>Owner · Invincible</small></button>
+            <button type="button" data-class="guardian" class="choice" aria-pressed="false"><span class="choice-symbol" aria-hidden="true">⚔</span><strong>Guardian</strong><small>Blade &amp; shield</small></button>
+            <button type="button" data-class="sunbow" class="choice" aria-pressed="false"><span class="choice-symbol" aria-hidden="true">➶</span><strong>Sunbow</strong><small>Ranged precision</small></button>
+            <button type="button" data-class="stormcaller" class="choice" aria-pressed="false"><span class="choice-symbol" aria-hidden="true">ϟ</span><strong>Stormcaller</strong><small>Celestial magic</small></button>
+            <button type="button" data-class="marksman" class="choice" aria-pressed="false"><span class="choice-symbol" aria-hidden="true">⌖</span><strong>Horizon marksman</strong><small>Precision rifle · 5 rounds</small><small>Right mouse focus · R reload</small></button>
+            <button type="button" data-class="brawler" class="choice" aria-pressed="false"><span class="choice-symbol" aria-hidden="true">✊</span><strong>Dawn pugilist</strong><small>Three-hit fist combos</small><small>Hand-to-hand · F guard</small></button>
+          </div><p class="role-note">Creator is the host's invincible role. Guests choose a fighter.</p></fieldset>
+
+          <fieldset class="choice-group"><legend><span>02</span> Enter the arena</legend><div class="choice-options">
+            <button type="button" data-mode="survival" class="choice selected" aria-pressed="true"><strong>Last light</strong><small>Survive the waves</small></button>
+            <button type="button" data-mode="relic" class="choice" aria-pressed="false"><strong>Relic rush</strong><small>Collect 12 relics</small></button>
+            <button type="button" data-mode="trial" class="choice" aria-pressed="false"><strong>Sun trial</strong><small>Beat the clock</small></button>
+          </div></fieldset>
+
+          <fieldset class="choice-group"><legend><span>03</span> Cross the threshold</legend><div class="choice-options realm-options">
+            <button type="button" data-realm="fields" class="choice selected" aria-pressed="true"><strong>Heaven's Fields</strong><small>Open skies</small></button>
+            <button type="button" data-realm="citadel" class="choice" aria-pressed="false"><strong>Sky citadel</strong><small>Above the clouds</small></button>
+            <button type="button" data-realm="duat" class="choice" aria-pressed="false"><strong>Duat breach</strong><small>At dusk's edge</small></button>
+            <button type="button" data-realm="sands" class="choice" aria-pressed="false"><strong>Solar sands</strong><small>Golden horizons</small></button>
+          </div></fieldset>
+
+          <fieldset class="choice-group contract-choices"><legend><span>04</span> Your freelance contract</legend><div class="choice-options">
+            <button type="button" data-contract="hunter" class="choice selected" aria-pressed="true"><strong>The hunter</strong><small>Defeat enemies</small></button>
+            <button type="button" data-contract="survivor" class="choice" aria-pressed="false"><strong>Unbroken</strong><small>Stay in the fight</small></button>
+            <button type="button" data-contract="collector" class="choice" aria-pressed="false"><strong>Sun seeker</strong><small>Gather essence</small></button>
+          </div></fieldset>
+          </div>
+          <div class="menu-actions">
+          <button type="button" id="start" class="primary-button"><span>PLAY SOLO</span><span aria-hidden="true">↗</span></button>
+          <p class="menu-footnote"><span aria-hidden="true">◇</span> Original world. Animated fantasy combat. All gold is virtual. No account required.</p>
+          </div>
+        </aside>
+
+        <aside class="arena-rail" aria-label="Mission and progression">
+          <section id="online-panel" class="online-card glass-panel" hidden aria-label="Co-op room">
+            <div class="online-room-heading"><span class="panel-kicker">YOUR CO-OP ROOM</span><span class="online-live-dot" aria-hidden="true"></span></div>
+            <strong id="online-code" class="online-code">------</strong>
+            <a id="invite-link" class="invite-link" href="#">Copy/share invite <span aria-hidden="true">↗</span></a>
+            <div id="online-status" class="online-status" role="status">Waiting for guardians…</div>
+            <ul id="online-roster" class="online-roster" aria-label="Players in room"></ul>
+            <button id="online-start" type="button" class="room-button online-start" hidden>Start co-op <span aria-hidden="true">↗</span></button>
+            <button id="online-leave" type="button" class="online-leave">Leave room</button>
+          </section>
+          <section class="objective-card glass-panel"><div class="panel-kicker">YOUR MISSION</div><h2 id="objective">Defend the gates of Heaven</h2><div class="objective-decoration" aria-hidden="true"><span></span> ◇ <span></span></div><div class="contract-heading">FREELANCE CONTRACT</div><strong id="contract-title">The hunter</strong><p id="contract-progress">Choose a contract to earn a bonus.</p><p id="mechanism-status" class="body-controls">Pull both golden levers with V to power the gate.</p></section>
+          <section class="loadout-card glass-panel" aria-label="Abilities"><div class="ability-line"><kbd>Q</kbd><div><span>SPECIAL ABILITY</span><strong id="ability-label">Solar judgment</strong></div></div><div class="ability-line"><kbd>⇧</kbd><div><span>EVASIVE MANEUVER</span><strong id="dash-label">Wing dash</strong></div></div><div class="movement-status"><span>STANCE / EQUIPMENT</span><strong id="movement-label">Standing · Ready</strong></div><p class="body-controls"><kbd>C</kbd> crouch <kbd>F</kbd> guard <kbd>E</kbd> jump<br><kbd>R</kbd> reload · Right mouse focus</p></section>
+          <section class="progression-card glass-panel" aria-label="Permanent upgrades"><div class="progression-title"><div class="panel-kicker">YOUR LEGACY</div><span class="level-badge">LV. <strong id="career-level">1</strong></span></div><div class="bank-row"><span>Celestial gold</span><strong><span class="gold-glyph" aria-hidden="true">◇</span> <span id="bank">0</span></strong></div><p class="upgrade-hint">Spend match rewards between runs.</p><div class="upgrade-list">
+            <button type="button" data-upgrade="vigor" class="upgrade-button"><span class="upgrade-symbol" aria-hidden="true">♡</span><span><strong>Vigor</strong><small>More vitality</small></span><span id="upgrade-vigor" class="upgrade-value">0</span><span class="upgrade-plus" aria-hidden="true">+</span></button>
+            <button type="button" data-upgrade="power" class="upgrade-button"><span class="upgrade-symbol" aria-hidden="true">⚔</span><span><strong>Power</strong><small>Stronger attacks</small></span><span id="upgrade-power" class="upgrade-value">0</span><span class="upgrade-plus" aria-hidden="true">+</span></button>
+            <button type="button" data-upgrade="focus" class="upgrade-button"><span class="upgrade-symbol" aria-hidden="true">✧</span><span><strong>Focus</strong><small>More radiance</small></span><span id="upgrade-focus" class="upgrade-value">0</span><span class="upgrade-plus" aria-hidden="true">+</span></button>
+          </div><p class="local-note">Progress saves on this device.</p></section>
+        </aside>
+
+        <div class="arena-coordinate" aria-hidden="true"><span>FIELD OF THE BLESSED</span><span>30° N / CELESTIAL PLANE</span></div>
+        <div id="touch-controls" class="touch-controls" aria-label="Touch game controls"><div class="movement-pad"><div id="joystick" class="joystick" aria-label="Movement joystick"><div id="joystick-knob" class="joystick-knob"></div></div><span class="touch-pad-label">MOVE</span></div><div class="touch-actions"><button type="button" id="aim-touch" class="touch-action" aria-pressed="false">Focus</button><button type="button" id="crouch-touch" class="touch-action" aria-pressed="false">Crouch</button><button type="button" id="block-touch" class="touch-action">Guard</button><button type="button" id="jump-touch" class="touch-action">Jump</button><button type="button" id="reload-touch" class="touch-action">Reload</button><button type="button" id="dash-touch" class="touch-action">Dash</button><button type="button" id="special-touch" class="touch-action special-touch">Special</button><button type="button" id="interact-touch" class="touch-action">Lever</button><button type="button" id="attack-touch" class="touch-action attack-touch">Attack</button></div><p class="touch-control-hint">Focus &amp; Crouch toggle · Hold Guard or Attack</p></div>
+
+        <section id="help-panel" class="help-panel glass-panel" hidden aria-label="How to play"><div class="panel-kicker">FLIGHT MANUAL</div><h2>A guardian's guide</h2><p id="controller-status">Xbox controller: connect, then press a button</p><p>Controller: left stick moves · right stick aims · RT/X attack · LT focus · A jump · B dash · RB special · LB guard · Y reload · right stick click crouch · D-pad up lever · Menu pause. Use D-pad and A in menus.</p><dl><div><dt><kbd>W A S D</kbd> / <kbd>↑ ← ↓ →</kbd></dt><dd>Move through the arena</dd></div><div><dt>Mouse</dt><dd>Aim your attacks</dd></div><div><dt>Click / <kbd>Space</kbd></dt><dd>Attack; pugilists chain three hits</dd></div><div><dt>Right mouse / Focus</dt><dd>Hold steady for precision aim</dd></div><div><dt><kbd>V</kbd></dt><dd>Pull a nearby gold lever; power both to unlock the gate</dd></div><div><dt><kbd>R</kbd></dt><dd>Reload the marksman's 5-round rifle</dd></div><div><dt><kbd>C</kbd></dt><dd>Crouch and steady your stance</dd></div><div><dt><kbd>F</kbd></dt><dd>Hold guard against incoming hits</dd></div><div><dt><kbd>E</kbd></dt><dd>Jump into the air</dd></div><div><dt><kbd>Shift</kbd></dt><dd>Dash through danger</dd></div><div><dt><kbd>Q</kbd></dt><dd>Unleash your special</dd></div><div><dt><kbd>P</kbd> / <kbd>Esc</kbd></dt><dd>Pause and breathe</dd></div></dl><p>Choose <strong>Horizon marksman</strong> for sniper-style precision or <strong>Dawn pugilist</strong> for hand-to-hand combat. Every oath can crouch, guard, jump, and dash.</p><p>Collect glowing essence, complete your freelance contract, and spend rewards on lasting upgrades. Touch players: use the movement pad and labeled action buttons. Focus and Crouch toggle on/off; hold Guard to block.</p><p class="help-close-note">Select Controls again to close.</p></section>
+
+        <div id="pause-overlay" class="modal-overlay" hidden><section class="modal-card glass-panel" aria-labelledby="pause-title"><div class="modal-emblem" aria-hidden="true">☥</div><span class="panel-kicker">A MOMENT BETWEEN WORLDS</span><h2 id="pause-title">Rest your wings.</h2><p>The arena will wait. Your oath remains.</p><button type="button" id="resume" class="primary-button">RETURN TO THE FIGHT <span aria-hidden="true">↗</span></button><button type="button" id="abandon" class="secondary-button">Leave this run</button></section></div>
+        <div id="result-overlay" class="modal-overlay" hidden><section class="modal-card result-card glass-panel" aria-labelledby="result-title"><div class="modal-emblem" aria-hidden="true">✦</div><span class="panel-kicker">THE SCRIBES WILL REMEMBER</span><h2 id="result-title">Your legend grows.</h2><p id="result-summary">The gates endure another day.</p><div id="result-stats" class="result-stats"></div><button type="button" id="again" class="primary-button">FLY AGAIN <span aria-hidden="true">↗</span></button><button type="button" id="menu-button" class="secondary-button">Return to contracts</button></section></div>
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      </section>
+      <footer class="game-footer"><span>WASD move · Mouse aim · Click / Space attack · Shift dash · Q special · P pause<br>C crouch · F guard · E jump · R reload · Right mouse focus</span><span class="footer-motto">LIGHT IS A CHOICE. <strong>DEFEND IT.</strong></span></footer>
+    </main>
+  </div>
+  <script src="vendor/peerjs.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

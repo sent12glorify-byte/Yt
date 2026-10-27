@@ -31,13 +31,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build the playable game and download
+        run: |
+          node scripts/build-arena.mjs
+          mkdir -p dist/site
+          cp dist/Heavenward.html dist/site/index.html
+          cp dist/Heavenward.html dist/site/Heavenward.html
+          cp public/arena/gallery.html dist/site/gallery.html
+          cp -R public/arena/media dist/site/media
+          cd dist/site
+          zip -q Heavenward.zip Heavenward.html
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          path: 'dist/site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
