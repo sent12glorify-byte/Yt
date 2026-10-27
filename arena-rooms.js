@@ -39,11 +39,26 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
     return name.length > 0 && name.length <= 24 ? name : null;
   }
   const validChoice = (map, value, fallback) => value === undefined ? fallback : typeof value === 'string' && Object.hasOwn(map, value) ? value : null;
+  function appearanceFrom(body) {
+    const appearance = {};
+    for (const [key, allowed] of [['weaponId', ['blade', 'bow', 'staff', 'rifle', 'fists', 'dual']], ['outfit', ['royal', 'battle', 'traveler', 'stealth', 'space', 'robe']]]) {
+      if (body?.[key] === undefined) continue;
+      if (typeof body[key] !== 'string' || !allowed.includes(body[key])) return null;
+      appearance[key] = body[key];
+    }
+    for (const key of ['primaryColor', 'accentColor']) {
+      if (body?.[key] === undefined) continue;
+      if (typeof body[key] !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(body[key])) return null;
+      appearance[key] = body[key].toLowerCase();
+    }
+    return appearance;
+  }
+  const rosterEntry = ({ id, name, classId, weaponId, outfit, primaryColor, accentColor }) => ({ id, name, classId, weaponId, outfit, primaryColor, accentColor });
   function publicLobby(room) {
     return {
       roomId: room.id, phase: room.phase, hostId: room.hostId, capacity,
       settings: { ...room.settings },
-      players: [...room.players.values()].map(player => ({ id: player.id, name: player.name, classId: player.classId, connected: player.streams.size > 0 })),
+      players: [...room.players.values()].map(player => ({ ...rosterEntry(player), connected: player.streams.size > 0 })),
     };
   }
   function send(stream, data) {
@@ -92,8 +107,8 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
     }
     return player;
   }
-  function newPlayer(name, classId) {
-    return { id: randomUUID(), token: randomBytes(32).toString('hex'), name, classId, input: {}, inputAt: 0, streams: new Set(), disconnectedAt: Date.now() };
+  function newPlayer(name, classId, appearance) {
+    return { id: randomUUID(), token: randomBytes(32).toString('hex'), name, classId, ...appearance, input: {}, inputAt: 0, streams: new Set(), disconnectedAt: Date.now() };
   }
   const credentials = (room, player) => ({ roomId: room.id, playerId: player.id, token: player.token });
   function normalizeInput(input) {
@@ -106,9 +121,14 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
       const minimum = key.startsWith('move') ? -1 : -maximum;
       result[key] = Math.max(minimum, Math.min(maximum, input[key]));
     }
-    for (const key of ['attack', 'dash', 'special', 'aim', 'crouch', 'block', 'jump', 'reload', 'interact']) {
+    for (const key of ['attack', 'dash', 'special', 'aim', 'crouch', 'block', 'jump', 'reload', 'interact', 'morph', 'mimic', 'clone', 'invisible', 'merge']) {
       if (input[key] !== undefined && typeof input[key] !== 'boolean') return null;
       result[key] = input[key] === true;
+    }
+    if(input.customForm !== undefined) {
+      const f=input.customForm;
+      if(!f||typeof f!=='object'||Array.isArray(f)||typeof f.name!=='string'||!f.name.trim()||f.name.length>40||!['light','water','fire','gold','hero','smoke','cloud'].includes(f.material)||typeof f.color!=='string'||!/^#[0-9a-f]{6}$/i.test(f.color)||typeof f.scale!=='number'||!Number.isFinite(f.scale)||f.scale<.6||f.scale>1.8)return null;
+      result.customForm={name:f.name.trim(),material:f.material,color:f.color,scale:f.scale};
     }
     return result;
   }
@@ -123,9 +143,11 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
     const realm = validChoice(REALMS, body.realm, 'citadel');
     const contractId = validChoice(CONTRACTS, body.contractId, 'hunter');
     if (!name || !classId || !mode || !realm || !contractId) return fail(res, 400, 'Choose a valid name, class, mission, realm, and contract.');
+    const appearance = appearanceFrom(body);
+    if (!appearance) return fail(res, 400, 'Choose a valid weapon, outfit, and six-digit hex colors.');
     let id;
     do { id = [...randomBytes(6)].map(byte => alphabet[byte % alphabet.length]).join(''); } while (rooms.has(id));
-    const player = newPlayer(name, classId);
+    const player = newPlayer(name, classId, appearance);
     const room = { id, phase: 'lobby', settings: { mode, realm, contractId }, hostId: player.id, players: new Map([[player.id, player]]), game: null, lastActivity: Date.now(), lastTick: Date.now() };
     rooms.set(id, room);
     res.status(201).json(credentials(room, player));
@@ -143,7 +165,9 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
     const classId = validChoice(CLASSES, req.body?.classId, 'guardian');
     if (!name || !classId) return fail(res, 400, 'Choose a valid name and combat class.');
     if (classId === 'creator') return fail(res, 403, 'The Creator is reserved for the room owner. Choose a guardian class to join.');
-    const player = newPlayer(name, classId);
+    const appearance = appearanceFrom(req.body);
+    if (!appearance) return fail(res, 400, 'Choose a valid weapon, outfit, and six-digit hex colors.');
+    const player = newPlayer(name, classId, appearance);
     room.players.set(player.id, player); room.lastActivity = Date.now();
     broadcast(room);
     res.status(201).json(credentials(room, player));
@@ -153,8 +177,9 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
     const player = authenticate(room, req.body, res); if (!player) return;
     if (player.id !== room.hostId) return fail(res, 403, 'Only the room host can start the match.');
     if (room.phase === 'playing') return fail(res, 409, 'The match has already started.');
-    const roster = [...room.players.values()].map(({ id, name, classId }) => ({ id, name, classId }));
-    room.game = createCoopGame({ ...room.settings, seed: randomBytes(4).readUInt32LE() }, roster);
+    if(['ctf','ffa','warzone'].includes(room.settings.mode)&&room.players.size<2)return fail(res,409,'Human PvP needs at least two players. Share the room code first.');
+    const roster = [...room.players.values()].map(rosterEntry);
+    room.game = createCoopGame({ ...room.settings, fillBots:false, seed: randomBytes(4).readUInt32LE() }, roster);
     for (const participant of room.players.values()) { participant.input = {}; participant.inputAt = 0; }
     room.phase = 'playing'; room.lastActivity = Date.now(); room.lastTick = Date.now();
     broadcast(room);
@@ -168,7 +193,8 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
     const input = normalizeInput(req.body.input);
     if (!input) return fail(res, 400, 'Input must contain finite movement/aim values and boolean controls.');
     // Preserve a one-shot action until the next simulation tick consumes it.
-    for (const key of ['dash', 'special', 'jump', 'reload', 'interact']) input[key] ||= player.input[key] === true;
+    for (const key of ['dash', 'special', 'jump', 'reload', 'interact', 'morph', 'mimic', 'clone', 'invisible', 'merge']) input[key] ||= player.input[key] === true;
+    input.customForm ??= player.input.customForm;
     player.input = input; player.inputAt = Date.now(); room.lastActivity = Date.now();
     res.status(202).json({ accepted: true });
   });
@@ -212,7 +238,8 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
       if (room.phase === 'playing') {
         const inputs = Object.fromEntries([...room.players.values()].map(player => {
           const input = now - player.inputAt < 1000 ? { ...player.input } : {};
-          for (const key of ['dash', 'special', 'jump', 'reload', 'interact']) player.input[key] = false;
+          for (const key of ['dash', 'special', 'jump', 'reload', 'interact', 'morph', 'mimic', 'clone', 'invisible', 'merge']) player.input[key] = false;
+          delete player.input.customForm;
           return [player.id, input];
         }));
         updateCoopGame(room.game, Math.min(.05, (now - room.lastTick) / 1000), inputs);

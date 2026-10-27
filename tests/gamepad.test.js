@@ -68,6 +68,24 @@ test('D-pad and left stick navigate on edges, including a direction change', () 
   assert.equal(f.poll().nav, -1);
 });
 
+test('D-pad right morphs once per press and still navigates menus', () => {
+  const f = fixture();
+  assert.equal(f.poll().morph, false);
+  f.press(15);
+  const first = f.poll();
+  assert.equal(first.morph, true);
+  assert.equal(first.nav, 1);
+  const held = f.poll();
+  assert.equal(held.morph, false);
+  assert.equal(held.nav, 0);
+  f.release(); f.poll(); f.press(15);
+  assert.equal(f.poll().morph, true);
+  f.setPads([]);
+  assert.equal(f.poll().morph, false);
+  f.setPads([f.pad]);
+  assert.equal(f.poll().morph, true);
+});
+
 test('disconnects and unavailable API reset controls and subsequent press edges', () => {
   const f = fixture();
   f.press(0); assert.equal(f.poll().select, true);
@@ -80,6 +98,24 @@ test('disconnects and unavailable API reset controls and subsequent press edges'
   f.pad.connected = false; assert.equal(f.poll().connected, false);
   assert.equal(createGamepadReader(() => { throw new Error('Permission unavailable'); })().connected, false);
   assert.equal(createGamepadReader(() => undefined)().connected, false);
+});
+
+test('Creator echo, invisibility, and merge actions use edges and reset after disconnect', () => {
+  for (const [name, button, nav] of [['clone', 14, -1], ['invisible', 8, 0], ['merge', 13, 1]]) {
+    const f = fixture();
+    assert.equal(f.poll()[name], false, name);
+    f.press(button);
+    const first = f.poll();
+    assert.equal(first[name], true, name);
+    assert.equal(first.nav, nav, name);
+    assert.equal(f.poll()[name], false, `${name} held`);
+    f.release(); f.poll(); f.press(button);
+    assert.equal(f.poll()[name], true, `${name} pressed again`);
+    f.setPads([]);
+    assert.equal(f.poll()[name], false, `${name} disconnected`);
+    f.setPads([f.pad]);
+    assert.equal(f.poll()[name], true, `${name} reconnected`);
+  }
 });
 
 test('invalid axes and missing buttons produce finite safe values', () => {

@@ -7,7 +7,7 @@ import { CLASSES, MODES, REALMS, CONTRACTS, createCoopGame, updateCoopGame } fro
 const PEER_PREFIX = 'heavenward-v1-';
 const ROOM_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const EDGE_INPUTS = ['dash', 'special', 'jump', 'reload', 'interact'];
+const EDGE_INPUTS = ['dash', 'special', 'jump', 'reload', 'interact', 'morph', 'mimic', 'clone', 'invisible', 'merge'];
 const MAX_PLAYERS = 4;
 const TIMEOUT = 12_000;
 
@@ -34,6 +34,21 @@ function choice(options, value, fallback) {
   if (typeof value !== 'string' || !Object.hasOwn(options, value)) throw new Error('Choose a valid class, mission, realm, and contract.');
   return value;
 }
+function appearanceFrom(value) {
+  const appearance = {};
+  for (const [key, allowed] of [['weaponId', ['blade', 'bow', 'staff', 'rifle', 'fists', 'dual']], ['outfit', ['royal', 'battle', 'traveler', 'stealth', 'space', 'robe']]]) {
+    if (value?.[key] === undefined) continue;
+    if (typeof value[key] !== 'string' || !allowed.includes(value[key])) throw new Error('Choose a valid weapon and outfit.');
+    appearance[key] = value[key];
+  }
+  for (const key of ['primaryColor', 'accentColor']) {
+    if (value?.[key] === undefined) continue;
+    if (typeof value[key] !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(value[key])) throw new Error('Choose six-digit hex colors for your outfit.');
+    appearance[key] = value[key].toLowerCase();
+  }
+  return appearance;
+}
+const rosterEntry = ({ id, name, classId, weaponId, outfit, primaryColor, accentColor }) => ({ id, name, classId, weaponId, outfit, primaryColor, accentColor });
 function cleanInput(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid arena controls.');
   const result = {};
@@ -47,10 +62,16 @@ function cleanInput(value) {
     if (value[key] !== undefined && typeof value[key] !== 'boolean') throw new Error('Invalid arena action.');
     result[key] = value[key] === true;
   }
+  if(value.customForm !== undefined) {
+    const f=value.customForm;
+    if(!f||typeof f!=='object'||Array.isArray(f)||typeof f.name!=='string'||!f.name.trim()||f.name.length>40||!['light','water','fire','gold','hero','smoke','cloud'].includes(f.material)||typeof f.color!=='string'||!/^#[0-9a-f]{6}$/i.test(f.color)||typeof f.scale!=='number'||!Number.isFinite(f.scale)||f.scale<.6||f.scale>1.8)throw new Error('Choose a valid named material form, color, and scale.');
+    result.customForm={name:f.name.trim(),material:f.material,color:f.color,scale:f.scale};
+  }
   return result;
 }
 function mergeInput(player, input) {
   for (const key of EDGE_INPUTS) input[key] ||= player.input[key] === true;
+  input.customForm ??= player.input.customForm;
   player.input = input;
   player.inputAt = performance.now();
 }
@@ -89,6 +110,7 @@ function openPeer(id, timeout = TIMEOUT) {
 export async function createPeerRoom(settings = {}, onEvent = () => {}) {
   const name = playerName(settings.name);
   const classId = choice(CLASSES, settings.classId, 'creator');
+  const appearance = appearanceFrom(settings);
   const options = {
     mode: choice(MODES, settings.mode, 'survival'), realm: choice(REALMS, settings.realm, 'fields'),
     contractId: choice(CONTRACTS, settings.contractId, 'hunter'),
@@ -100,11 +122,11 @@ export async function createPeerRoom(settings = {}, onEvent = () => {}) {
     catch (error) { if (error?.type !== 'unavailable-id' || attempt === 2) throw error?.type === 'unavailable-id' ? new Error('Could not reserve a room code. Try creating the room again.') : error; }
   }
   const hostId = peer.id;
-  const players = new Map([[hostId, { id: hostId, name, classId, input: {}, inputAt: 0, connection: null }]]);
+  const players = new Map([[hostId, { id: hostId, name, classId, ...appearance, input: {}, inputAt: 0, connection: null }]]);
   const pending = new Set();
   let game = null, phase = 'lobby', closed = false, lastTick = performance.now(), signalTimer;
   function lobby() {
-    return { type: 'lobby', roomId, hostId, phase, capacity: MAX_PLAYERS, settings: { ...options }, players: [...players.values()].map(player => ({ id: player.id, name: player.name, classId: player.classId })) };
+    return { type: 'lobby', roomId, hostId, phase, capacity: MAX_PLAYERS, settings: { ...options }, players: [...players.values()].map(rosterEntry) };
   }
   function event() { return game ? { type: 'state', roomId, hostId, phase, game } : lobby(); }
   function broadcast(message = event()) {
@@ -153,7 +175,8 @@ export async function createPeerRoom(settings = {}, onEvent = () => {}) {
         try {
           const guestName = playerName(data.name), guestClass = choice(CLASSES, data.classId, 'guardian');
           if (guestClass === 'creator') { reject(connection, 'The Creator is reserved for the room owner. Choose a guardian class.'); return; }
-          const player = { id: connection.peer, name: guestName, classId: guestClass, input: {}, inputAt: 0, connection };
+          const appearance = appearanceFrom(data);
+          const player = { id: connection.peer, name: guestName, classId: guestClass, ...appearance, input: {}, inputAt: 0, connection };
           players.set(player.id, player); joined = true; clearTimeout(timeout); pending.delete(connection);
           send(connection, { type: 'welcome', roomId, playerId: player.id, hostId, lobby: lobby() });
           broadcast();
@@ -186,6 +209,7 @@ export async function createPeerRoom(settings = {}, onEvent = () => {}) {
     for (const player of players.values()) {
       inputs[player.id] = now - player.inputAt < 1000 ? { ...player.input } : {};
       for (const key of EDGE_INPUTS) player.input[key] = false;
+      delete player.input.customForm;
     }
     updateCoopGame(game, dt, inputs);
     if (game.status !== 'playing') phase = 'finished';
@@ -197,7 +221,8 @@ export async function createPeerRoom(settings = {}, onEvent = () => {}) {
     async start() {
       if (closed) throw new Error('This room has closed. Create another room.');
       if (phase === 'playing') throw new Error('The match is already running.');
-      game = createCoopGame({ ...options, seed: crypto.getRandomValues(new Uint32Array(1))[0] }, [...players.values()].map(({ id, name, classId }) => ({ id, name, classId })));
+      if(['ctf','ffa','warzone'].includes(options.mode)&&players.size<2)throw new Error('Human PvP needs at least two players. Share the room code first.');
+      game = createCoopGame({ ...options, fillBots:false, seed: crypto.getRandomValues(new Uint32Array(1))[0] }, [...players.values()].map(rosterEntry));
       phase = 'playing'; lastTick = performance.now(); broadcast();
     },
     async sendInput(input) {
@@ -213,6 +238,7 @@ export async function joinPeerRoom(code, settings = {}, onEvent = () => {}) {
   if (!ROOM_PATTERN.test(roomId)) throw new Error('Enter the six-character room code.');
   const name = playerName(settings.name), classId = choice(CLASSES, settings.classId, 'guardian');
   if (classId === 'creator') throw new Error('Choose a guardian class to join. The Creator belongs to the room owner.');
+  const appearance = appearanceFrom(settings);
   const began = performance.now();
   const peer = await openPeer(undefined);
   return new Promise((resolve, reject) => {
@@ -225,9 +251,9 @@ export async function joinPeerRoom(code, settings = {}, onEvent = () => {}) {
       else notify(onEvent, { type: 'left', roomId, message });
       connection?.close(); peer.destroy();
     }
-    try { connection = peer.connect(hostId, { reliable: true, serialization: 'json' }); }
+    try { connection = peer.connect(hostId, { reliable: true, serialization: 'binary' }); }
     catch (error) { close(failure(error).message); return; }
-    connection.on('open', () => { if (!closed) send(connection, { type: 'join', name, classId }); });
+    connection.on('open', () => { if (!closed) send(connection, { type: 'join', name, classId, ...appearance }); });
     connection.on('data', raw => {
       if (closed) return;
       const data = decode(raw); if (!data) return;

@@ -146,3 +146,89 @@ test('inactive rooms expire and disconnected players do not occupy rooms indefin
   await new Promise(resolve => setTimeout(resolve, 70));
   assert.equal((await other.call(`/rooms/${disconnected.roomId}`)).status, 404);
 });
+
+test('loadout choices validate before room admission and cannot inject arbitrary styles', async t => {
+  const { call, create } = await fixture(t);
+  const owner = await create();
+  for (const invalid of [
+    { weaponId: 'laser' }, { weaponId: null }, { outfit: 'unknown' }, { outfit: [] },
+    { primaryColor: 'red' }, { primaryColor: '#fff' }, { primaryColor: 'url(javascript:alert(1))' },
+    { accentColor: '#12zz45' }, { accentColor: null },
+  ]) {
+    assert.equal((await call('/rooms', { name: 'Invalid owner', ...invalid })).status, 400);
+    assert.equal((await call(`/rooms/${owner.roomId}/join`, { name: 'Invalid guest', ...invalid })).status, 400);
+  }
+  const lobby = await (await call(`/rooms/${owner.roomId}`)).json();
+  assert.equal(lobby.players.length, 1, 'rejected appearance must not consume a player slot');
+});
+
+test('custom weapons, outfits, and colors survive lobby and authoritative match snapshots', async t => {
+  const { call, create, stream } = await fixture(t);
+  const hostAppearance = { weaponId: 'dual', outfit: 'royal', primaryColor: '#1234AB', accentColor: '#FFEEDD' };
+  const guestAppearance = { weaponId: 'rifle', outfit: 'stealth', primaryColor: '#193040', accentColor: '#ABCDEF' };
+  const owner = await create({ classId: 'creator', ...hostAppearance });
+  const guest = await (await call(`/rooms/${owner.roomId}/join`, { name: 'Traveler', classId: 'guardian', ...guestAppearance })).json();
+  const lobby = await (await call(`/rooms/${owner.roomId}`)).json();
+  assert.equal(lobby.players.find(player => player.id === owner.playerId).primaryColor, '#1234ab');
+  assert.equal(lobby.players.find(player => player.id === guest.playerId).outfit, 'stealth');
+  const events = await stream(owner);
+  await call(`/rooms/${owner.roomId}/start`, owner);
+  const state = await events.next(event => event.type === 'state');
+  for (const [id, appearance] of [[owner.playerId, hostAppearance], [guest.playerId, guestAppearance]]) {
+    const actor = state.game.players.find(player => player.id === id);
+    assert.equal(actor.weaponId, appearance.weaponId); assert.equal(actor.outfit, appearance.outfit);
+    assert.equal(actor.primaryColor, appearance.primaryColor.toLowerCase());
+    assert.equal(actor.accentColor, appearance.accentColor.toLowerCase());
+  }
+  assert.ok(!JSON.stringify(state).includes(owner.token)); assert.ok(!JSON.stringify(state).includes(guest.token));
+  assert.equal((await call(`/rooms/${owner.roomId}/input`, { ...guest, input: { weaponId: 'dual', outfit: 'royal', primaryColor: '#ff0000' } })).status, 202);
+  const later = await events.next(event => event.type === 'state' && event.game.time > .06);
+  assert.equal(later.game.players.find(player => player.id === guest.playerId).weaponId, 'rifle', 'control updates cannot change the admitted loadout');
+  assert.equal((await call(`/rooms/${owner.roomId}/input`, { ...owner, input: { morph: 'yes' } })).status, 400);
+  await call(`/rooms/${owner.roomId}/input`, { ...owner, input: { morph: true } });
+  await events.next(event => event.type === 'state' && event.game.players.find(player => player.id === owner.playerId).form === 'water');
+  const settled = await events.next(event => event.type === 'state' && event.game.time > .6);
+  assert.equal(settled.game.players.find(player => player.id === owner.playerId).form, 'water', 'one morph packet changes form only once');
+});
+
+test('capture-the-flag, free-for-all, and warzone room modes start the selected simulation', async t => {
+  const { call, create, stream } = await fixture(t);
+  for (const mode of ['ctf', 'ffa', 'warzone']) {
+    const owner = await create({ mode, classId: 'guardian', weaponId: 'bow', outfit: 'traveler' });
+    const lobby = await (await call(`/rooms/${owner.roomId}`)).json();
+    assert.equal(lobby.settings.mode, mode);
+    assert.equal((await call(`/rooms/${owner.roomId}/start`, owner)).status,409,'human PvP must wait for a second real player');
+    const guest=await (await call(`/rooms/${owner.roomId}/join`,{name:'Human opponent',classId:'marksman'})).json();
+    const events = await stream(owner);
+    assert.equal((await call(`/rooms/${owner.roomId}/start`, owner)).status, 200);
+    const state = await events.next(event => event.type === 'state');
+    assert.equal(state.game.mode, mode);
+    assert.equal(state.game.players[0].weaponId, 'bow');
+    assert.equal(state.game.players.length,2);
+    assert.ok(state.game.players.every(player=>!player.isBot));
+    events.close();
+    await call(`/rooms/${owner.roomId}/leave`, owner);
+  }
+});
+
+test('Creator lab commands validate bounded visual data and run custom forms, echoes, invisibility, and merging once', async t => {
+  const { call, create, stream } = await fixture(t);
+  const owner = await create({ classId: 'creator', realm: 'fields' });
+  const events = await stream(owner);
+  await call(`/rooms/${owner.roomId}/start`, owner);
+  for (const customForm of [{name:'',material:'water',color:'#97dbff',scale:1}, {name:'bad',material:'water',color:'red',scale:1}, {name:'too large',material:'fire',color:'#ffbb55',scale:50}]) {
+    assert.equal((await call(`/rooms/${owner.roomId}/input`, { ...owner, input: { customForm } })).status,400);
+  }
+  const customForm={name:'Silver tide',material:'water',color:'#97dbff',scale:1.4};
+  assert.equal((await call(`/rooms/${owner.roomId}/input`,{...owner,input:{customForm}})).status,202);
+  const custom=await events.next(e=>e.type==='state'&&e.game.player.form==='custom');
+  assert.equal(custom.game.player.customForm.name,'Silver tide');assert.equal(custom.game.player.scale,1.4);
+  await call(`/rooms/${owner.roomId}/input`,{...owner,input:{clone:true}});
+  await events.next(e=>e.type==='state'&&e.game.echoes.length===1);
+  await call(`/rooms/${owner.roomId}/input`,{...owner,input:{invisible:true}});
+  await events.next(e=>e.type==='state'&&e.game.player.invisible===true);
+  await call(`/rooms/${owner.roomId}/input`,{...owner,input:{merge:true}});
+  const merged=await events.next(e=>e.type==='state'&&e.game.echoes.length===0&&e.game.echoesCreated===1);
+  assert.ok(Math.abs(merged.game.player.scale-1.52)<1e-9);
+  assert.equal(merged.game.player.classId,'creator');
+});

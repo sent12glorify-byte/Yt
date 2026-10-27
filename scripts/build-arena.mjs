@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 // Build an offline, browser-openable game without adding a bundler dependency.
@@ -20,4 +21,5 @@ const bundled = html
 if (bundled === html || bundled.includes('src="app.js"')) throw new Error('Game entry point was not bundled.');
 await mkdir(path.dirname(output), { recursive: true });
 await writeFile(output, bundled);
+await writeFile(path.join(root, 'dist/Heavenward-meta.json'), JSON.stringify({ bytes: Buffer.byteLength(bundled), sha256: createHash('sha256').update(bundled).digest('hex') }));
 console.log(`Offline game built: ${output}`);

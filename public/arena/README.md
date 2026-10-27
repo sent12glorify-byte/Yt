@@ -1,81 +1,74 @@
-# Heavenward
+# Heavenward — Human PvP Demo
 
-An original Egyptian angel arena game about defending Heaven. A playable 2D canvas prototype with solo bot battles, four-player browser-hosted WebRTC rooms in the static web edition, and server-hosted rooms in the Node edition. No accounts, credentials, or paid APIs are required. Solo gameplay uses local resources. Public browser rooms use the community PeerJS signaling service and WebRTC/STUN connectivity. This is a stylized prototype, not a photorealistic simulation or a recreation of another commercial game.
+An original, stylized 2D Egyptian angel arena prototype combining human-player shooting, hand-to-hand combat, team objectives, and supernatural abilities. It is a demo, not a finished AAA game or a certified native Xbox title.
 
-## Play
+## Play and load
 
-Use Node.js 22 or newer. From the repository root:
+Use Node.js 22+ from the repository root:
 
 ```sh
 npm install --package-lock=false
 npm start
 ```
 
-The default server route opens the game. The game is also available at `/arena/`, while Cloudy remains at `/cloud/`.
+`/arena/` is the game; `/cloud/` retains Cloudy. The main flow is human-player rooms. Choose **Host human PvP**, share the invite/code, and have another human select **Join room**. At least two players are required for competitive matches; no AI fills online player slots. The host starts the match. The optional **Bot practice** button clearly starts an AI practice session. Up to four human players can join a room.
 
-For an offline game:
+Build the self-contained edition with `node scripts/build-arena.mjs`. This writes ignored `dist/Heavenward.html` plus byte-count/SHA-256 metadata. The Pages loader streams the actual game file, displays byte progress, checks its checksum, and opens it. Its progress is not an upload timer. Open the downloaded HTML directly for offline practice; human rooms require the hosted edition.
 
-```sh
-node scripts/build-arena.mjs
-```
+The Pages workflow builds a combined download containing the game, loader, gallery, illustrated cover, and action videos. The 32-second demo commercial records two independently controlled browser clients, an actual flag capture, zone control, and Creator abilities. Early gallery clips are labeled AI practice. No gameplay is fabricated with generated video.
 
-Open `dist/Heavenward.html` directly in your browser. It contains the same simulation, renderer, UI, and controls with no network requests. Browser storage policies for local files vary; the game remains playable without saved progress.
+## Modes
 
-The game starts directly in Heaven’s Fields as the invincible **Creator**. Select **Choose arena** to pick a different combat class, mission, realm, and freelance contract, then press **Play solo**. Matches award fictional gold when they finish, including losses. Abandoning a run gives no reward. Gold buys three levels each of health, damage, and energy/cooldown upgrades; purchases apply on the next solo run. Career progress saves in this browser, not to a remote account. This game has no real-money purchases, gold sales, or refunds.
+- Free for all: first to ten eliminations or the leader at the two-minute limit.
+- Capture the flag: carry the opposing flag home while your flag is at base; first to three captures.
+- Team war zone: hold the center without opposing players; first to thirty control points.
+- Cooperative survival, relic recovery, and score trials remain available.
 
-## Free cooperative rooms
+Competitive players respawn after three seconds; team modes disable friendly fire. Online rosters preserve exactly the admitted humans. Practice modes can include explicitly labeled bots. The Creator is damage-invincible but still has mission objectives.
 
-In the server edition, select **Choose arena**, enter your player name, and choose **Host free co-op**. Share the six-character room code. Friends open the same hosted game, choose a standard fighter, enter the code, and select **Join room**. The host selects **Start co-op** when everyone is ready. Up to four players share the same enemies, score, waves, relics, and golden gate machinery. The host may play the invincible Creator; guests cannot select that role. Ordinary fighters fall at zero health and watch until the team finishes or the host starts another match.
+## Characters, weapons, and forms
 
-The GitHub Pages workflow publishes the static web edition. When opened over HTTPS, that edition uses browser-hosted WebRTC rooms: the owner runs the simulation, must keep the game tab open and in the foreground, and closing that tab ends the room. Connection negotiation uses the community PeerJS service at `0.peerjs.com`. Some firewalls/NATs prevent direct peer connections; universal connectivity is not guaranteed. No TURN relay service has been provisioned. Browser-hosted rooms are beta. Signaling-service connections from the cloud's Chromium currently fail with `ERR_CERT_AUTHORITY_INVALID`; certificate verification was kept enabled. Transport was also tested using a local signaling fixture; that does not establish public signaling connectivity.
+The workshop offers six original weapon types (blade, dual blades, rifle, bow, staff, fists), six human outfit styles, and custom primary/accent colors. Weapons affect actual attacks; each character class retains its special. This is an expandable starter catalog, not every character or weapon from existing games.
 
-Alternatively, deploy the Node server to a publicly reachable host that supports Server-Sent Events (SSE), with response buffering disabled, to use server-hosted rooms. A room code does not itself make a private local server reachable. The standalone HTML file opened through `file://` plays solo only; open the hosted HTTPS edition for public browser co-op.
+The host's fictional Creator role has unlimited radiance and damage immunity. T cycles Light, Water, Fire, Liquid Gold, Superhero, Smoke, and Cloud. Materials have distinct movement/combat traits: smoke phases through pillars, cloud heals nearby teammates, fire burns nearby opponents, gold accelerates nearby gate machinery, and the superhero moves/dashes faster.
 
-Rooms are ephemeral, live in one server process, and end on server restart. Joining a running match is disabled. Lobby ownership transfers when the host leaves; Creator power is tied to the selected host character, not an authenticated global administrator account. Per-room session tokens authenticate input. Input is bounded, stale movement expires, and the server owns the simulation. Co-op ignores browser-purchased upgrades so clients cannot supply their own stats. Leaving or reconnecting is not an account or persistent identity system. Online matches continue while one player's controls are paused.
+The Creator lab creates arbitrarily named material/color/scale combinations. They are stylized material bodies, not arbitrary semantic 3D models. One active custom definition replaces the previous one. G imitates a nearby fighter's appearance while actual identity/team stay unchanged on the scoreboard. I toggles invisibility from NPC tracking. H creates invincible echoes; up to twelve are simultaneously active, with a lifetime creation counter. M absorbs nearby owned echoes and increases actual radius, reach, and damage. Scale remains bounded from 0.6 to 1.8. Echoes cannot capture flags, control zones, or enter winner standings.
+
+The liquid-gold gate engine has two levers, pulleys, a turning wheel and a lock. Approach each lever and press V. Both engaged charge the mechanism for four seconds, opening it for a one-time 250 glory bonus and essence. Gold is fictional. There are no purchases, sales, AI funding loops, or refunds.
 
 ## Controls
 
-| Action | Keyboard / mouse | Touch |
+| Action | Keyboard / mouse | Xbox-standard browser controller |
 | --- | --- | --- |
-| Move | WASD or arrow keys | Movement pad |
-| Aim | Mouse | Automatically targets nearest enemy |
-| Attack | Hold left mouse or Space | Hold Attack |
-| Dodge dash | Shift | Dash |
-| Class special | Q | Special |
-| Precision aim | Hold right mouse | Toggle Focus |
-| Crouch | Hold C | Toggle Crouch |
-| Frontal guard | Hold F | Hold Guard |
-| Jump | E | Jump |
-| Reload rifle | R | Reload |
-| Pull nearby gold lever | V | Lever |
-| Pause / resume | P or Esc | Pause / Resume |
+| Move / aim | WASD or arrows / mouse | Left / right stick |
+| Attack / focus | Click or Space / right mouse | RT or X / LT |
+| Dash / jump | Shift / E | B / A |
+| Special / guard | Q / F | RB / LB |
+| Reload / crouch | R / C | Y / right-stick click |
+| Lever / morph | V / T | D-pad up / right |
+| Echo / merge | H / M | D-pad left / down |
+| Invisible / disguise | I / G | View / on-screen button |
+| Pause | P or Esc | Menu |
 
-Crouching slows movement and reduces incoming projectile damage. Guarding slows movement, drains radiance, and reduces frontal damage while preventing attacks. Jumping briefly evades projectiles. Dash provides brief protection. Rifle focus trades movement speed for precision and damage. Sound is optional and starts only after selecting Sound. Switching tabs pauses local controls; online matches continue.
+Labeled touch controls and Creator-lab buttons provide the same actions. D-pad/left stick and A navigate menus. Actual Xbox hardware has not been tested; native console publication needs Microsoft tools and certification. Online worlds continue while a player's controls are paused.
 
-Xbox-style browser controllers: left stick moves, right stick aims, RT or X attacks, LT focuses, A jumps, B dashes, RB uses the special, LB guards, Y reloads, right-stick click crouches, D-pad up pulls a nearby lever, and Menu pauses. D-pad/left stick and A navigate menus. Controller mapping is tested with standard Gamepad API inputs, but an actual Xbox console has not been tested. Native Xbox distribution requires Microsoft tools and certification.
+## Networking and limits
 
-## Combat and missions
+The Node edition uses authenticated authoritative rooms and SSE at `/api/arena`. Rooms are ephemeral, bounded to four humans, use validated controls with expiring stale input, and end on server restart. Guest clients cannot select Creator or inject stats. Browser career upgrades apply to solo practice, not authoritative room stats.
 
-- **Dawn Guardian:** blade arcs, shield, a healing shockwave.
-- **Sunbow Ranger:** fast solar arrows and a seven-shot fan.
-- **Storm Oracle:** slower magic orbs and an area burst that clears hostile projectiles.
-- **Horizon Marksman:** a five-round celestial rifle, focused precision shots, reloads, and a piercing special.
-- **Dawn Pugilist:** close hand-to-hand attacks, a three-hit combo, and a shockwave.
-- **The Creator:** the invincible host/solo character, unlimited radiance, strong area attacks, and an arena-wide light ability.
+The HTTPS static edition uses vendored PeerJS 1.5.5 and browser-hosted WebRTC. The host must keep the room tab open/in the foreground; leaving ends that peer room. PeerJS community signaling and default STUN/TURN connectivity depend on external service/network availability. Public co-op/PvP is beta, not a promise of universal connectivity. Binary chunking supports large snapshots. The vendored npm tarball's SHA-512 was verified and its license retained.
 
-Five-wave survival, twelve-relic collection, and a ninety-second score trial have distinct goals. Heaven’s Fields is an open arena with no pillars or hazards. Sky Citadel has safe terrain; Duat and Sands add pulsing hazards. Hunter, survival, and collection contracts add bonus gold. Enemies include melee shades, archers, heavy brutes, and fast wisps.
+Public signaling from the cloud Chromium fails with `ERR_CERT_AUTHORITY_INVALID`; managed `WebRtcIPHandling: disable_non_proxied_udp` also prevented local ICE candidates. Automatic review rejected adding a proxy CA; no trust or privacy policy changes were made. Real Node-based two-browser play and mocked peer protocol were validated separately. Public WebRTC connectivity is not verified from this machine.
 
-The liquid-gold look and ripples are inspired by the supplied video. The optional gate engine has two real toggle levers, rotating pulleys and a wheel, and a lock. Approach each gold lever and press V (or Lever on touch). With both engaged, the mechanism charges for four seconds and unlocks the gate for a one-time 250 glory bonus and essence. This is fictional game machinery, not a source of funding.
-
-## Validation
+## Validation and publication
 
 ```sh
-node --test tests/arena.test.js
-node --test tests/arena-rooms.test.js
-node --test tests/cloudy-platform.test.js
+node --test tests/*.test.js
 node scripts/build-arena.mjs
+node scripts/build-preview.mjs
+git diff --check
 ```
 
-The deterministic simulation tests cover movement/collisions, cooldowns, damage, class mechanics, contracts, win/loss conditions, and actual complete five-wave matches for all five classes. Desktop, mobile-touch, and offline browser checks should additionally cover UI input, pause, saved upgrades, and JavaScript errors.
+70 automated tests cover the simulation, all modes, actual AI practice matches, input mapping, Node room transport, Creator-lab packets, and Cloudy. Browser checks cover human-only two-client rosters, actual combat, forms, invisibility, echoes/merging, disguises, touch practice, loading-byte/checksum flow, and media metadata. A managed-browser network restriction is not counted as a passing public WebRTC test.
 
-The simulation is in `core.mjs`, the canvas renderer and browser controller in `app.js`, and the interface in `index.html` and `styles.css`. The single-file build is generated; edit source files and rebuild it.
+The user requested a 9:05 AM New York release on October 27, 2026. `.github/scripts/wait-for-publish.py` gates deployment until `2026-10-27T13:05:00Z` after the artifact is uploaded. Workflow inputs can override the UTC target within four hours. No fake three-hour transfer is shown. Future pushes after the target deploy immediately. GitHub/CDN propagation may finish shortly after the target.

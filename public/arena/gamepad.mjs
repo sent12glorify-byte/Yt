@@ -27,7 +27,8 @@ function emptyInput() {
   return {
     connected: false, label: '', moveX: 0, moveY: 0, aimX: 0, aimY: 0,
     attack: false, aim: false, block: false, crouch: false,
-    dash: false, jump: false, special: false, reload: false, interact: false,
+    dash: false, jump: false, special: false, reload: false, interact: false, morph: false,
+    clone: false, invisible: false, merge: false,
     pause: false, select: false, back: false, nav: 0,
   };
 }
@@ -71,7 +72,8 @@ export function createGamepadReader(getPads = () => globalThis.navigator?.getGam
     const result = {
       connected: true, label, moveX, moveY, aimX, aimY,
       attack: buttons[7] || buttons[2], aim: buttons[6], block: buttons[4], crouch: buttons[11],
-      dash: edge(1), jump: edge(0), special: edge(5), reload: edge(3), interact: edge(12),
+      dash: edge(1), jump: edge(0), special: edge(5), reload: edge(3), interact: edge(12), morph: edge(15),
+      clone: edge(14), invisible: edge(8), merge: edge(13),
       pause: edge(9), select: edge(0), back: edge(1),
       nav: direction && direction !== previousNav ? direction : 0,
     };
