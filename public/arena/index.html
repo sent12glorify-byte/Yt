@@ -45,8 +45,12 @@
         <aside id="menu" class="menu-panel glass-panel" aria-label="Choose your mission">
           <div class="menu-content">
           <div class="panel-kicker"><span class="tiny-rule"></span> ANSWER THE CALL</div>
-          <h1>Heaven needs<br><em>your wings.</em></h1>
-          <p class="menu-description">An open gate. A gathering darkness. Take a contract and carve your legend into the stars.</p>
+          <h1>Your character.<br><em>Your arena.</em></h1>
+          <p class="menu-description">Play as a human, or create a champion from fantasy, science fiction, and beyond.</p>
+          <section class="character-picker" aria-labelledby="character-picker-heading">
+            <div class="character-portrait"><canvas id="character-preview" width="260" height="280" aria-label="Preview of your selected playable character"></canvas></div>
+            <div class="character-picker-controls"><h2 id="character-picker-heading">Your playable character</h2><label class="workshop-field" for="character-select">Character type<select id="character-select" aria-describedby="character-roster-note"></select></label><strong id="character-preview-name">Human</strong><span id="character-roster-note">25 original archetypes</span><button id="edit-character" type="button" class="room-button">Customize appearance</button></div>
+          </section>
 
           <section class="room-setup" aria-label="Free multiplayer setup">
             <div class="room-setup-heading"><h2>Gather your guardians.</h2><span class="free-badge">FREE CO-OP</span></div>
@@ -67,17 +71,22 @@
           </div><p class="role-note">Creator is the host's invincible role. Guests choose a fighter.</p></fieldset>
 
           <details class="character-workshop">
-            <summary>Character workshop <span>Weapons · outfits · colors</span></summary>
+            <summary>Character workshop <span>Skin · hair · build · weapons · outfits</span></summary>
             <div class="workshop-body">
-              <p class="workshop-intro">Build your human character with six original outfit presets and six weapon styles.</p>
+              <p class="workshop-intro">Build a human or an original fantasy, sci-fi, animal, or elemental champion. Appearance is separate from your combat class.</p>
               <div class="workshop-grid">
+                <label class="workshop-field workshop-wide" for="character-name">Original character title (optional)<input id="character-name" type="text" maxlength="32" placeholder="Name your creation" autocomplete="off"></label>
+                <label class="workshop-field" for="body-select">Body build<select id="body-select"></select></label>
+                <label class="workshop-field" for="hair-select">Hair style<select id="hair-select"></select></label>
+                <label class="workshop-field color-field" for="skin-tone">Skin / creature tone<input id="skin-tone" type="color" value="#c98a62"></label>
+                <label class="workshop-field color-field" for="hair-color">Hair color<input id="hair-color" type="color" value="#2b1c18"></label>
                 <label class="workshop-field" for="weapon-select">Weapon<select id="weapon-select"><option value="blade">Blade</option><option value="bow">Sunbow</option><option value="staff">Staff</option><option value="rifle">Rifle</option><option value="fists">Fists</option><option value="dual">Dual blades</option></select></label>
                 <label class="workshop-field" for="outfit-select">Outfit<select id="outfit-select"><option value="royal">Royal armor</option><option value="battle">Battle gear</option><option value="traveler">Traveler</option><option value="stealth">Stealth suit</option><option value="space">Star suit</option><option value="robe">Robes</option></select></label>
                 <label class="workshop-field color-field" for="primary-color">Primary color<input id="primary-color" type="color" value="#e8c981"></label>
                 <label class="workshop-field color-field" for="accent-color">Accent color<input id="accent-color" type="color" value="#62d8cf"></label>
               </div>
               <button id="randomize-look" type="button" class="room-button randomize-look">Randomize look <span aria-hidden="true">⤨</span></button>
-              <p class="workshop-note">Your weapon changes the basic attack. Your selected oath keeps its special ability. Your name is set above.</p>
+              <p class="workshop-note">Choose any character with any outfit and weapon. Character appearance is cosmetic; your oath supplies combat abilities. Changes apply to your next match and are saved on this browser.</p>
             </div>
           </details>
 

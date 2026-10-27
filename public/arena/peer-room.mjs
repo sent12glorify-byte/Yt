@@ -1,4 +1,4 @@
-import { CLASSES, MODES, REALMS, CONTRACTS, createCoopGame, updateCoopGame } from './core.mjs';
+import { CLASSES, MODES, REALMS, CONTRACTS, characterAppearance, createCoopGame, updateCoopGame } from './core.mjs';
 
 // Public static-host co-op uses the community PeerJS signaling service and WebRTC.
 // The room owner runs the authoritative simulation and must keep this tab open
@@ -35,7 +35,7 @@ function choice(options, value, fallback) {
   return value;
 }
 function appearanceFrom(value) {
-  const appearance = {};
+  const appearance = characterAppearance(value, true);
   for (const [key, allowed] of [['weaponId', ['blade', 'bow', 'staff', 'rifle', 'fists', 'dual']], ['outfit', ['royal', 'battle', 'traveler', 'stealth', 'space', 'robe']]]) {
     if (value?.[key] === undefined) continue;
     if (typeof value[key] !== 'string' || !allowed.includes(value[key])) throw new Error('Choose a valid weapon and outfit.');
@@ -48,7 +48,7 @@ function appearanceFrom(value) {
   }
   return appearance;
 }
-const rosterEntry = ({ id, name, classId, weaponId, outfit, primaryColor, accentColor }) => ({ id, name, classId, weaponId, outfit, primaryColor, accentColor });
+const rosterEntry = ({ id, name, classId, weaponId, outfit, primaryColor, accentColor, characterId, characterName, skinTone, hairStyle, hairColor, bodyType }) => ({ id, name, classId, weaponId, outfit, primaryColor, accentColor, characterId, characterName, skinTone, hairStyle, hairColor, bodyType });
 function cleanInput(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid arena controls.');
   const result = {};

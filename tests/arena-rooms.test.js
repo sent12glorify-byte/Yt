@@ -50,6 +50,7 @@ test('free rooms validate choices, sanitize names, expose no session tokens, and
   assert.match(owner.roomId, /^[A-HJ-NP-Z2-9]{6}$/); assert.match(owner.token, /^[a-f0-9]{64}$/);
   const initial = await (await call(`/rooms/${owner.roomId}`)).json();
   assert.equal(initial.players[0].name, 'Amun'); assert.equal(initial.capacity, 4);
+  assert.equal(initial.players[0].characterId, 'human', 'human characters are the default for new rooms');
   assert.equal(initial.settings.realm, 'fields');
   assert.ok(!JSON.stringify(initial).includes(owner.token));
   for (let i = 0; i < 3; i++) assert.equal((await call(`/rooms/${owner.roomId}/join`, { name: `Guest ${i}`, classId: 'sunbow' })).status, 201);
@@ -154,6 +155,10 @@ test('loadout choices validate before room admission and cannot inject arbitrary
     { weaponId: 'laser' }, { weaponId: null }, { outfit: 'unknown' }, { outfit: [] },
     { primaryColor: 'red' }, { primaryColor: '#fff' }, { primaryColor: 'url(javascript:alert(1))' },
     { accentColor: '#12zz45' }, { accentColor: null },
+    { characterId: 'licensed-character-that-does-not-exist' }, { characterId: null },
+    { characterName: 'x'.repeat(33) }, { characterName: 'hidden\u0000text' }, { characterName: {} },
+    { skinTone: 'url(secret)' }, { skinTone: '#fff' }, { hairColor: 'brown' },
+    { hairStyle: 'unsupported' }, { hairStyle: [] }, { bodyType: 'giant' }, { bodyType: 1 },
   ]) {
     assert.equal((await call('/rooms', { name: 'Invalid owner', ...invalid })).status, 400);
     assert.equal((await call(`/rooms/${owner.roomId}/join`, { name: 'Invalid guest', ...invalid })).status, 400);
@@ -162,15 +167,18 @@ test('loadout choices validate before room admission and cannot inject arbitrary
   assert.equal(lobby.players.length, 1, 'rejected appearance must not consume a player slot');
 });
 
-test('custom weapons, outfits, and colors survive lobby and authoritative match snapshots', async t => {
+test('human and fantasy characters, custom appearances, and loadouts survive lobby and authoritative match snapshots', async t => {
   const { call, create, stream } = await fixture(t);
-  const hostAppearance = { weaponId: 'dual', outfit: 'royal', primaryColor: '#1234AB', accentColor: '#FFEEDD' };
-  const guestAppearance = { weaponId: 'rifle', outfit: 'stealth', primaryColor: '#193040', accentColor: '#ABCDEF' };
+  const hostAppearance = { weaponId: 'dual', outfit: 'royal', primaryColor: '#1234AB', accentColor: '#FFEEDD', characterId: 'human', characterName: 'Sun Champion', skinTone: '#693F24', hairStyle: 'braids', hairColor: '#20140D', bodyType: 'broad' };
+  const guestAppearance = { weaponId: 'rifle', outfit: 'stealth', primaryColor: '#193040', accentColor: '#ABCDEF', characterId: 'dragonborn', characterName: 'Star Drake', skinTone: '#387A61', hairStyle: 'mohawk', hairColor: '#FFA030', bodyType: 'slim' };
   const owner = await create({ classId: 'creator', ...hostAppearance });
   const guest = await (await call(`/rooms/${owner.roomId}/join`, { name: 'Traveler', classId: 'guardian', ...guestAppearance })).json();
   const lobby = await (await call(`/rooms/${owner.roomId}`)).json();
   assert.equal(lobby.players.find(player => player.id === owner.playerId).primaryColor, '#1234ab');
   assert.equal(lobby.players.find(player => player.id === guest.playerId).outfit, 'stealth');
+  assert.equal(lobby.players.find(player => player.id === owner.playerId).characterId, 'human');
+  assert.equal(lobby.players.find(player => player.id === guest.playerId).characterId, 'dragonborn');
+  assert.equal(lobby.players.find(player => player.id === guest.playerId).characterName, 'Star Drake');
   const events = await stream(owner);
   await call(`/rooms/${owner.roomId}/start`, owner);
   const state = await events.next(event => event.type === 'state');
@@ -179,11 +187,16 @@ test('custom weapons, outfits, and colors survive lobby and authoritative match 
     assert.equal(actor.weaponId, appearance.weaponId); assert.equal(actor.outfit, appearance.outfit);
     assert.equal(actor.primaryColor, appearance.primaryColor.toLowerCase());
     assert.equal(actor.accentColor, appearance.accentColor.toLowerCase());
+    for (const field of ['characterId', 'characterName', 'hairStyle', 'bodyType']) assert.equal(actor[field], appearance[field]);
+    for (const field of ['skinTone', 'hairColor']) assert.equal(actor[field], appearance[field].toLowerCase());
   }
   assert.ok(!JSON.stringify(state).includes(owner.token)); assert.ok(!JSON.stringify(state).includes(guest.token));
-  assert.equal((await call(`/rooms/${owner.roomId}/input`, { ...guest, input: { weaponId: 'dual', outfit: 'royal', primaryColor: '#ff0000' } })).status, 202);
+  assert.equal((await call(`/rooms/${owner.roomId}/input`, { ...guest, input: { weaponId: 'dual', outfit: 'royal', primaryColor: '#ff0000', characterId: 'human', characterName: 'Forged', skinTone: '#ffffff', hairStyle: 'shaved', hairColor: '#ffffff', bodyType: 'broad' } })).status, 202);
   const later = await events.next(event => event.type === 'state' && event.game.time > .06);
   assert.equal(later.game.players.find(player => player.id === guest.playerId).weaponId, 'rifle', 'control updates cannot change the admitted loadout');
+  const admittedGuest = later.game.players.find(player => player.id === guest.playerId);
+  for (const field of ['characterId', 'characterName', 'hairStyle', 'bodyType']) assert.equal(admittedGuest[field], guestAppearance[field], `control updates cannot change ${field}`);
+  assert.equal(admittedGuest.skinTone, '#387a61'); assert.equal(admittedGuest.hairColor, '#ffa030');
   assert.equal((await call(`/rooms/${owner.roomId}/input`, { ...owner, input: { morph: 'yes' } })).status, 400);
   await call(`/rooms/${owner.roomId}/input`, { ...owner, input: { morph: true } });
   await events.next(event => event.type === 'state' && event.game.players.find(player => player.id === owner.playerId).form === 'water');

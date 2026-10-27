@@ -1,4 +1,4 @@
-import { CLASSES, MODES, REALMS, CONTRACTS, FORMS, WEAPONS, getForm, UPGRADE_COSTS, createGame, updateGame } from './core.mjs';
+import { CLASSES, MODES, REALMS, CONTRACTS, FORMS, WEAPONS, OUTFITS, CHARACTERS, HAIR_STYLES, BODY_TYPES, characterAppearance, getForm, UPGRADE_COSTS, createGame, updateGame } from './core.mjs';
 import { createGamepadReader } from './gamepad.mjs';
 import { createPeerRoom, joinPeerRoom } from './peer-room.mjs';
 
@@ -6,7 +6,17 @@ const $ = id => document.getElementById(id);
 const canvas = $('arena');
 const ctx = canvas.getContext('2d');
 const STORAGE_KEY = 'heavenward-career-v1';
-const selection = { classId: 'creator', mode: 'ffa', realm: 'fields', contractId: 'hunter', weaponId: 'rifle', outfit: 'battle', primaryColor: '#e8c981', accentColor: '#62d8cf' };
+const LOOK_KEY = 'heavenward-loadout-v1';
+function loadLook() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(LOOK_KEY) || '{}') || {}; } catch {}
+  const hex = (value, fallback) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+  return { ...characterAppearance(saved), weaponId: Object.hasOwn(WEAPONS,saved.weaponId) ? saved.weaponId : 'rifle', outfit: Object.hasOwn(OUTFITS,saved.outfit) ? saved.outfit : 'battle', primaryColor: hex(saved.primaryColor,'#e8c981'), accentColor: hex(saved.accentColor,'#62d8cf') };
+}
+const selection = { classId: 'creator', mode: 'ffa', realm: 'fields', contractId: 'hunter', ...loadLook() };
+function saveLook() {
+  try { localStorage.setItem(LOOK_KEY, JSON.stringify({ ...characterAppearance(selection), weaponId:selection.weaponId, outfit:selection.outfit, primaryColor:selection.primaryColor, accentColor:selection.accentColor })); } catch {}
+}
 const number = (v, max = 100000000) => Math.min(max, Math.max(0, Number.isFinite(v) ? Math.floor(v) : 0));
 let storageWorks = true;
 function loadCareer() {
@@ -82,7 +92,7 @@ function showRoster(players, hostId) {
     const label = document.createElement('strong');
     label.textContent = `${player.name}${player.id === hostId ? ' · host' : ''}${player.id === online.playerId ? ' · you' : ''}`;
     const detail = document.createElement('span');
-    detail.textContent = `${CLASSES[player.classId]?.name || player.classId}${player.hp === 0 ? ' · fallen' : ''}`;
+    detail.textContent = `${player.characterName || CHARACTERS[player.characterId || 'human']?.name || 'Human'} · ${CLASSES[player.classId]?.name || player.classId}${player.hp === 0 ? ' · fallen' : ''}`;
     item.append(label, detail); $('online-roster').append(item);
   }
 }
@@ -120,7 +130,7 @@ function handleRoomData(data) {
     }
     $('game-session').textContent = `${game.competitive?'Human PvP':'Human co-op'} · ${online.roomId}`;
     $('online-start').hidden = data.phase === 'playing' || online.playerId !== online.hostId;
-    $('online-status').textContent = data.phase === 'finished' ? 'Match complete. The host can start another.' : self.hp <= 0 ? 'Your angel fell. Watch your teammates defend Heaven.' : 'Shared arena · controls are live';
+    $('online-status').textContent = data.phase === 'finished' ? 'Match complete. The host can start another.' : self.hp <= 0 ? 'Your character fell. Watch your teammates defend Heaven.' : 'Shared arena · controls are live';
     showRoster(game.players, online.hostId);
     updateHud();
     if (game.status !== 'playing' && screen === 'playing') finishRun();
@@ -179,7 +189,7 @@ async function openRoom(join) {
       const code = $('room-code').value.trim().toUpperCase();
       if (!/^[A-Z0-9]{6}$/.test(code)) throw new Error('Enter a six-character room code.');
       const classId = selection.classId === 'creator' ? 'guardian' : selection.classId;
-      const look={weaponId:selection.weaponId,outfit:selection.outfit,primaryColor:selection.primaryColor,accentColor:selection.accentColor};
+      const look={...characterAppearance(selection),weaponId:selection.weaponId,outfit:selection.outfit,primaryColor:selection.primaryColor,accentColor:selection.accentColor};
       const result = window.HEAVENWARD_STATIC ? await joinPeerRoom(code, { name, classId, ...look }, handleRoomData) : await roomRequest(`/rooms/${code}/join`, { name, classId, ...look });
       connectRoom(result);
       if (selection.classId === 'creator') toast('Guests enter as Dawn Guardians. The Creator role belongs to the host.');
@@ -252,6 +262,7 @@ for (const [attribute, property] of [['class', 'classId'], ['mode', 'mode'], ['r
         other.classList.toggle('selected', active);
         other.setAttribute('aria-pressed', String(active));
       }
+      saveLook();
       if (screen === 'menu') {
         game = createGame({ ...selection, fillBots:false, upgrades: career.upgrades });
         updateHud();
@@ -264,20 +275,41 @@ for (const [attribute, property] of [['class', 'classId'], ['mode', 'mode'], ['r
     } else button.setAttribute('aria-pressed', 'false');
   }
 }
-for (const [id, key] of [['weapon-select','weaponId'],['outfit-select','outfit'],['primary-color','primaryColor'],['accent-color','accentColor']]) {
-  const element=$(id);
-  element.value=selection[key];
-  element.addEventListener('input',()=>{selection[key]=element.value;if(screen==='menu'){game=createGame({...selection,fillBots:false,upgrades:career.upgrades});updateHud();}});
+const lookControls = [['character-select','characterId'],['character-name','characterName'],['skin-tone','skinTone'],['hair-select','hairStyle'],['hair-color','hairColor'],['body-select','bodyType'],['weapon-select','weaponId'],['outfit-select','outfit'],['primary-color','primaryColor'],['accent-color','accentColor']];
+const groups = new Map();
+for (const [id, character] of Object.entries(CHARACTERS)) {
+  const category = character.category || 'Champions';
+  if (!groups.has(category)) { const group=document.createElement('optgroup');group.label=category;groups.set(category,group);$('character-select').append(group); }
+  const option=document.createElement('option');option.value=id;option.textContent=character.name;groups.get(category).append(option);
 }
+for (const [id, choices] of [['hair-select',HAIR_STYLES],['body-select',BODY_TYPES]]) {
+  for (const [value, detail] of Object.entries(choices)) { const option=document.createElement('option');option.value=value;option.textContent=typeof detail==='string'?detail:detail.name;$(id).append(option); }
+}
+function updateLook() {
+  Object.assign(selection,characterAppearance(selection));
+  saveLook();
+  if(screen==='menu'){game=createGame({...selection,fillBots:false,upgrades:career.upgrades});updateHud();}
+  $('character-preview-name').textContent=selection.characterName||CHARACTERS[selection.characterId].name;
+  $('character-preview').setAttribute('aria-label',`Preview: ${selection.characterName||CHARACTERS[selection.characterId].name}, ${OUTFITS[selection.outfit].name}`);
+}
+for (const [id,key] of lookControls) {
+  const element=$(id);element.value=selection[key];
+  element.addEventListener('input',()=>{selection[key]=element.value;updateLook();});
+}
+$('edit-character').addEventListener('click',()=>{const workshop=document.querySelector('.character-workshop');workshop.open=true;workshop.scrollIntoView({block:'nearest',behavior:'smooth'});$('character-name').focus({preventScroll:true});});
 $('randomize-look').addEventListener('click',()=>{
   const pick=values=>values[Math.floor(Math.random()*values.length)];
-  selection.weaponId=pick(['blade','bow','staff','rifle','fists','dual']);
-  selection.outfit=pick(['royal','battle','traveler','stealth','space','robe']);
+  selection.characterId=pick(Object.keys(CHARACTERS));selection.characterName='';
+  selection.bodyType=pick(Object.keys(BODY_TYPES));selection.hairStyle=pick(Object.keys(HAIR_STYLES));
+  selection.skinTone=pick(['#f2d0b0','#d7a274','#c98a62','#9d6246','#704633','#492d25']);
+  selection.hairColor=pick(['#2b1c18','#583526','#ac793f','#ded8c4','#c2503c','#44517b']);
+  selection.weaponId=pick(Object.keys(WEAPONS));selection.outfit=pick(Object.keys(OUTFITS));
   selection.primaryColor='#'+Math.floor(Math.random()*16777216).toString(16).padStart(6,'0');
   selection.accentColor='#'+Math.floor(Math.random()*16777216).toString(16).padStart(6,'0');
-  for(const [id,key] of [['weapon-select','weaponId'],['outfit-select','outfit'],['primary-color','primaryColor'],['accent-color','accentColor']])$(id).value=selection[key];
-  game=createGame({...selection,fillBots:false,upgrades:career.upgrades});updateHud();toast('New look and weapon selected for your next match.');
+  for(const [id,key] of lookControls)$(id).value=selection[key];
+  updateLook();toast('Original character, outfit, and weapon selected for your next match.');
 });
+updateLook();
 for (const button of document.querySelectorAll('[data-upgrade]')) {
   button.addEventListener('click', () => {
     const key = button.dataset.upgrade;
@@ -542,7 +574,7 @@ function updateHud() {
   $('special-touch').classList.toggle('on-cooldown', cooldown > 0 || p.energy < 30);
   $('dash-touch').classList.toggle('on-cooldown', p.dashCooldown > 0);
   if ($('movement-label')) $('movement-label').textContent = [p.jumpTime > 0 ? 'Airborne' : p.blocking ? 'Guarding' : p.crouching ? 'Crouched' : focusAim ? 'Focused aim' : 'Ready', p.weaponId === 'rifle' ? (p.reloadTime > 0 ? `Reloading ${p.reloadTime.toFixed(1)}s` : `Rifle ${p.ammo} / ${p.maxAmmo}`) : WEAPONS[p.weaponId]?.name || CLASSES[game.classId].weapon].join(' · ');
-  if($('form-label'))$('form-label').textContent=game.classId==='creator'?getForm(p).name+' FORM':'HUMAN FIGHTER';
+  if($('form-label'))$('form-label').textContent=game.classId==='creator'?getForm(p).name+' FORM':(p.characterName||CHARACTERS[p.characterId]?.name||'Human')+' FIGHTER';
   for(const id of ['morph-form','morph-touch','mimic-form','create-custom-form','invisible-form','clone-form','merge-form','invisible-touch','echo-touch','merge-touch','mimic-touch'])if($(id))$(id).disabled=game.classId!=='creator'||screen!=='playing'||paused;
   if($('lab-status'))$('lab-status').textContent=`${p.invisible?'Invisible':'Visible'} · Scale ${(p.scale||1).toFixed(1)} · Echoes ${(game.echoes||[]).length} / 12 · Created ${game.echoesCreated||0}`;
   $('contract-title').textContent = CONTRACTS[game.contract.id].name;
@@ -671,8 +703,108 @@ function drawBattleObjectives(time){
     ctx.fillStyle=color;ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText(flag.team.toUpperCase()+' FLAG',flag.homeX,flag.homeY+67);
   }
 }
-function drawPlayer(time, p = game.player) {
-  const owner=(p.classId||game.classId)==='creator';
+// Shared canvas primitives let portraits use exactly the same character renderer.
+function characterDrawing(ctx) {
+  return {
+    ellipse(x,y,rx,ry,fill,stroke){ctx.beginPath();ctx.ellipse(x,y,Math.max(.01,rx),Math.max(.01,ry),0,0,Math.PI*2);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}},
+    line(points,color,width=1){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.stroke();},
+    glow(x,y,radius,color){const gradient=ctx.createRadialGradient(x,y,0,x,y,radius);gradient.addColorStop(0,color);gradient.addColorStop(1,'transparent');ctx.fillStyle=gradient;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);}
+  };
+}
+function drawCharacterBody(ctx,look,time,body,accent) {
+  const {ellipse,line}=characterDrawing(ctx);
+  const type=Object.hasOwn(CHARACTERS,look.characterId)?look.characterId:'human';
+  const outfit=look.outfit||'battle';
+  const natural={orc:'#7d9854',demon:'#b46c69',dragonborn:'#b68b56',fox:'#cf8c50',cat:'#b8b2a4',beast:'#a07d59',alien:'#89bda0',elemental:'#80d8db'};
+  const skin=look.skinTone||natural[type]||'#c98a62';
+  const hair=look.hairColor||'#2b1c18';
+  const width=look.bodyType==='slim'?.83:look.bodyType==='broad'?1.18:1;
+  ctx.save();ctx.scale(width,type==='dwarf'?.8:1);
+  const polygon=(points,fill,stroke)=>{ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();}};
+  if(['fox','cat','beast','dragonborn'].includes(type)){
+    ctx.beginPath();ctx.moveTo(8,18);ctx.bezierCurveTo(48,46,52,0,39,1);ctx.bezierCurveTo(58,36,22,50,-1,24);ctx.fillStyle=skin;ctx.fill();
+    if(type==='fox')ellipse(40,8,7,11,'#eee1c5');
+  }
+  if(type==='slime'){
+    const wobble=Math.sin(time*3)*3;
+    ellipse(0,14,30+wobble,26,skin+'dd',accent);
+    ellipse(0,-5,23,21,skin+'dd');ellipse(-11,-13,6,4,'#ffffff66');
+    ellipse(-8,-7,3,4,'#15242b');ellipse(8,-7,3,4,'#15242b');line([[-4,4],[0,6],[5,3]],'#253d42',2);
+    ellipse(-24,15,10,7,skin);ellipse(24,15,10,7,skin);ctx.restore();return;
+  }
+  if(type==='skeleton'){
+    for(const side of [-1,1]){line([[side*7,13],[side*10,33]],'#e5dec6',5);ellipse(side*10,33,5,3,'#d7d2bf');line([[side*14,-7],[side*22,12]],'#e5dec6',5);}
+    line([[0,-7],[0,18]],'#e5dec6',5);ellipse(0,15,10,5,null,'#e5dec6');
+    for(const y of [-5,1,7]){ctx.lineWidth=2;ellipse(0,y,11,4,null,'#e5dec6');}
+    ellipse(0,-21,12,13,'#e5dec6');ellipse(-5,-23,3,4,'#1a2532');ellipse(5,-23,3,4,'#1a2532');polygon([[-2,-18],[2,-18],[0,-21]],'#1a2532');
+    ctx.fillStyle='#e5dec6';ctx.fillRect(-7,-13,14,5);for(const x of [-4,0,4])line([[x,-13],[x,-8]],'#2b3540',1);ctx.restore();return;
+  }
+  if(type==='ghost'){
+    ctx.globalAlpha*=.8;
+    ctx.beginPath();ctx.moveTo(-20,-8);ctx.quadraticCurveTo(-29,12,-26,37);for(let x=-26;x<26;x+=13)ctx.quadraticCurveTo(x+6,25,x+13,37);ctx.quadraticCurveTo(29,12,20,-8);ctx.closePath();ctx.fillStyle='#d5e8de';ctx.fill();
+    ellipse(0,-20,16,18,'#e9f1e7');ellipse(-6,-22,3,5,'#283744');ellipse(6,-22,3,5,'#283744');ellipse(0,-9,3,4,'#758b8e');
+    line([[-19,-1],[-31,14]],'#d5e8de',8);line([[19,-1],[31,14]],'#d5e8de',8);ctx.restore();return;
+  }
+  const robot=type==='robot',cyborg=type==='cyborg';
+  for(const side of [-1,1]){
+    line([[side*7,14],[side*9,32]],body,9);ellipse(side*10,34,7,4,'#233441');
+    line([[side*16,-5],[side*22,10]],cyborg&&side===1?'#9db0b5':body,7);ellipse(side*22,13,4,5,robot?'#a4b9c0':cyborg&&side===1?'#a4b9c0':skin);
+  }
+  polygon([[-17,-8],[17,-8],[12,18],[0,23],[-12,18]],body,'#07172555');
+  if(outfit==='robe'||type==='mage')polygon([[-12,8],[20,36],[-20,36]],body);
+  if(outfit==='battle'||outfit==='royal'||robot){ellipse(-16,-7,8,6,accent);ellipse(16,-7,8,6,accent);}
+  if(outfit==='traveler'){ctx.fillStyle='#816849';ctx.fillRect(-22,8,9,12);line([[-11,-7],[10,16]],'#8b7653',3);}
+  ctx.fillStyle=accent;ctx.fillRect(-11,10,22,4);
+  if(robot){
+    ctx.fillStyle='#a1b8be';ctx.fillRect(-11,-30,22,22);ctx.fillStyle=accent;ctx.fillRect(-8,-24,16,5);line([[-5,-13],[5,-13]],'#284151',2);ellipse(0,0,6,6,accent);line([[-15,-27],[-15,-17]],'#a1b8be',3);line([[15,-27],[15,-17]],'#a1b8be',3);ctx.restore();return;
+  }
+  if(['elf','orc','alien'].includes(type))for(const side of [-1,1])polygon([[side*8,-24],[side*(type==='elf'?22:17),-30],[side*11,-14]],skin);
+  if(['fox','cat','beast'].includes(type))for(const side of [-1,1]){polygon([[side*3,-25],[side*13,-42],[side*19,-22]],skin);polygon([[side*8,-27],[side*12,-36],[side*15,-25]],'#b98381');}
+  if(['demon','dragonborn'].includes(type))for(const side of [-1,1])polygon([[side*5,-28],[side*15,-45],[side*13,-24]],type==='demon'?'#d4c1a1':accent);
+  // Visible skin, ears, facial features, and hair keep the default fighter human.
+  ellipse(0,-19,type==='alien'?14:10,type==='alien'?17:12,skin,'#10222c33');
+  if(!['fox','cat','beast','alien','dragonborn'].includes(type)){ellipse(-10,-19,2,4,skin);ellipse(10,-19,2,4,skin);}
+  if(type==='alien'){
+    ellipse(-6,-21,4,6,'#162d2e');ellipse(6,-21,4,6,'#162d2e');line([[-3,-9],[3,-9]],'#405f53',1);
+  }else if(['fox','cat','beast','dragonborn'].includes(type)){
+    ellipse(-4,-20,2,2,'#17282a');ellipse(4,-20,2,2,'#17282a');ellipse(0,-12,7,5,type==='dragonborn'?accent:'#ead2ac');ellipse(0,-14,2.5,2,'#34312e');
+    if(type==='cat')for(const side of [-1,1])for(const y of [-14,-10])line([[side*5,y],[side*18,y-3]],'#e3dacc',.8);
+  }else{
+    ellipse(-4,-20,2,1.2,'#23313a');ellipse(4,-20,2,1.2,'#23313a');line([[0,-18],[1,-15]],'#563b3280',1);line([[-3,-12],[3,-12]],'#694437',1);
+  }
+  const hairStyle=look.hairStyle||'short';
+  if(!['alien','dragonborn','elemental'].includes(type)&&hairStyle!=='shaved'){
+    if(hairStyle==='long'){for(const side of [-1,1])line([[side*8,-24],[side*13,1]],hair,6);}
+    if(hairStyle==='braids')for(const side of [-1,1])for(let y=-23;y<=1;y+=5)ellipse(side*11,y,3,4,hair);
+    ctx.beginPath();ctx.arc(0,-23,11,Math.PI,Math.PI*2);ctx.lineTo(10,-22);ctx.lineTo(6,-26);ctx.lineTo(-7,-23);ctx.closePath();ctx.fillStyle=hair;ctx.fill();
+    if(hairStyle==='mohawk')polygon([[-4,-28],[-3,-41],[3,-37],[5,-27]],hair);
+  }
+  if(cyborg){ctx.fillStyle='#9db0b5';ctx.fillRect(1,-29,9,17);ellipse(6,-22,2,2,'#ff795a');}
+  if(type==='dwarf'){polygon([[-9,-13],[-7,1],[0,9],[8,1],[10,-13]],hair);for(const x of [-4,4])line([[x,-10],[x,2]],'#ffffff22',1);}
+  if(type==='orc')for(const side of [-1,1])polygon([[side*4,-9],[side*7,-16],[side*9,-9]],'#f4e2b6');
+  if(type==='vampire'){polygon([[-5,-12],[-3,-7],[-1,-12]],'#f4e7d2');polygon([[1,-12],[3,-7],[5,-12]],'#f4e7d2');line([[-5,-21],[-3,-21]],'#c54e5c',2);}
+  if(type==='knight'){ctx.beginPath();ctx.arc(0,-23,13,Math.PI,Math.PI*2);ctx.lineTo(12,-16);ctx.lineTo(8,-17);ctx.lineTo(8,-24);ctx.lineTo(-8,-24);ctx.lineTo(-8,-17);ctx.lineTo(-12,-16);ctx.closePath();ctx.fillStyle='#8299a7';ctx.fill();line([[0,-36],[0,-29]],accent,4);}
+  if(type==='samurai'){polygon([[-16,-24],[-9,-34],[9,-34],[16,-24]],'#394952');for(const side of [-1,1])line([[side*7,-32],[side*16,-43],[side*17,-32]],accent,3);}
+  if(type==='ninja'||type==='superhero'){ctx.fillStyle=type==='ninja'?'#192c39':accent;ctx.fillRect(-10,-23,20,6);ellipse(-4,-20,2,1.5,'#e4d9bd');ellipse(4,-20,2,1.5,'#e4d9bd');if(type==='ninja'){ctx.fillStyle='#192c39';ctx.fillRect(-9,-15,18,7);line([[8,-25],[23,-16],[29,-21]],accent,3);}}
+  if(type==='pirate'){polygon([[-19,-29],[-10,-38],[0,-32],[11,-38],[20,-29]],'#302e35');line([[-15,-29],[15,-29]],accent,2);ellipse(-4,-20,3,3,'#17222b');line([[-9,-24],[7,-16]],'#17222b',1);}
+  if(type==='ranger'){ctx.beginPath();ctx.arc(0,-21,15,Math.PI*.85,Math.PI*2.15);ctx.strokeStyle=body;ctx.lineWidth=6;ctx.stroke();}
+  if(type==='mage'){polygon([[-19,-29],[4,-54],[13,-28]],body);line([[-20,-28],[19,-28]],accent,3);ellipse(5,-37,2,2,accent);}
+  if(type==='angel'){ctx.lineWidth=2;ellipse(0,-39,16,4,null,accent);}
+  if(type==='elemental'){for(let i=0;i<6;i++){const x=(i-2.5)*5;polygon([[x-4,-26],[x+Math.sin(time*4+i)*4,-41-(i%3)*4],[x+5,-26]],i%2?skin:accent);}ellipse(-4,-20,2,2,'#f3fff2');ellipse(4,-20,2,2,'#f3fff2');}
+  ctx.restore();
+}
+function paintCharacterPreview(now) {
+  if(screen!=='menu')return;
+  const portrait=$('character-preview'),target=portrait.getContext('2d');
+  target.clearRect(0,0,portrait.width,portrait.height);
+  target.save();target.translate(130,151);target.scale(2.7,2.7);
+  drawPlayer(now/1000,{...game.player,x:0,y:0,facing:-Math.PI/2,team:null,form:null,invisible:false,hitFlash:0,jumpTime:0,scale:1},target,true);
+  target.restore();
+}
+function drawPlayer(time, p = game.player, target = ctx, preview = false) {
+  const ctx=target;
+  const {ellipse,line,glow}=characterDrawing(ctx);
+  const owner=!preview&&(p.classId||game.classId)==='creator';
   const form=owner?(p.form==='custom'?getForm(p).material:p.form||'light'):null;
   if(p.invisible&&p.id!==game.player.id&&p!==game.player&&(game.mode==='ffa'||p.team!==game.player.team))return;
   const look=form==='mimic'&&p.disguise?p.disguise:p;
@@ -683,6 +815,7 @@ function drawPlayer(time, p = game.player) {
   const weapon=look.weaponId||p.weaponId||'blade';
   const angle=Number.isFinite(p.facing)?p.facing:0;
   const flap=Math.sin(time*5)*4;
+  const type=look.characterId||'human';
   ellipse(p.x,p.y+20,27,10,'#00000055');
   if(p.team){const team=look.team||p.team;ellipse(p.x,p.y+20,31,13,null,team==='sun'?'#efd18aaa':team==='moon'?'#a6b4ffaa':'#bde7d688');}
   glow(p.x,p.y,owner?90:55,color+'20');
@@ -701,33 +834,17 @@ function drawPlayer(time, p = game.player) {
   if(form==='fire'){
     for(let i=0;i<12;i++){const a=i*Math.PI/6;ctx.save();ctx.rotate(a);const length=38+Math.sin(time*9+i)*14;ctx.beginPath();ctx.moveTo(-9,16);ctx.quadraticCurveTo(-15,length,0,length+15);ctx.quadraticCurveTo(12,length,9,16);ctx.fillStyle=i%2?'#ffc15b88':'#fb6a4055';ctx.fill();ctx.restore();}
   }
-  if(form==='hero'||outfit==='traveler'){
+  if(form==='hero'||outfit==='traveler'||type==='superhero'||type==='vampire'){
     ctx.fillStyle=form==='hero'?'#a93e4e':look.accentColor||'#8b7157';ctx.beginPath();ctx.moveTo(-17,-8);ctx.quadraticCurveTo(-36,25,-36,57);ctx.lineTo(0,49);ctx.lineTo(35,57);ctx.quadraticCurveTo(33,18,17,-8);ctx.fill();
-  }else if(owner||outfit==='robe'||outfit==='royal'){
+  }
+  if(type==='angel'){
     for(const side of [-1,1])for(let i=6;i>=0;i--){const out=22+i*5,up=-6+i*2+flap;ctx.beginPath();ctx.moveTo(side*8,5);ctx.quadraticCurveTo(side*out*.75,-28-i*2,side*out,up-12);ctx.quadraticCurveTo(side*(out-3),up+8,side*8,16);ctx.fillStyle=owner&&form!=='mimic'?color+(i%2?'bb':'66'):i%2?'#e8e2cc':'#b9cccf';ctx.fill();ctx.strokeStyle='#ffffff33';ctx.lineWidth=.7;ctx.stroke();}
   }
   let body=look.primaryColor||'#314a61';
-  if(owner&&form!=='mimic')body=form==='hero'?'#285a8e':color;
-  if(form==='gold'){const g=ctx.createLinearGradient(-18,-10,22,28);g.addColorStop(0,'#fff1ad');g.addColorStop(.35,'#9a6d24');g.addColorStop(.6,'#edc468');g.addColorStop(1,'#ffe7a5');body=g;for(let i=0;i<4;i++)ellipse(Math.sin(time*2+i)*23,23+(time*18+i*8)%21,3,5,'#e5bb6999');}
-  line([[-7,14],[-9,34]],body,10);line([[7,14],[9,34]],body,10);
-  ctx.fillStyle=body;ctx.beginPath();ctx.moveTo(-17,-8);ctx.lineTo(17,-8);ctx.lineTo(11,18);ctx.lineTo(0,23);ctx.lineTo(-11,18);ctx.closePath();ctx.fill();
-  if(outfit==='robe'){ctx.beginPath();ctx.moveTo(-10,8);ctx.lineTo(18,38);ctx.lineTo(-18,38);ctx.closePath();ctx.fill();}
-  const accent=owner&&form!=='mimic'?'#fff2be':look.accentColor||'#e2c17d';
-  line([[-17,-5],[-22,12]],body,8);line([[17,-5],[22,12]],body,8);
-  if(outfit==='battle'||outfit==='royal'){ellipse(-16,-8,8,6,accent);ellipse(16,-8,8,6,accent);}
-  if(outfit==='traveler'){ctx.fillStyle='#816849';ctx.fillRect(-22,9,9,12);}
-  ctx.fillStyle=accent;ctx.fillRect(-11,10,22,4);ctx.fillRect(-2,-7,4,20);
-  ellipse(0,-19,10,12,owner&&form!=='mimic'?form==='hero'?'#c79976':body:'#c79976');
-  // A human face and beard distinguish the Creator from the masked fighters.
-  if(owner&&form!=='mimic'){
-    ctx.fillStyle=form==='hero'?'#172432':'#c4bda6';ctx.beginPath();ctx.arc(0,-23,11,Math.PI,Math.PI*2);ctx.lineTo(10,-21);ctx.lineTo(-10,-21);ctx.fill();
-    ctx.fillStyle=form==='hero'?'#263447':'#c7b99c';ctx.beginPath();ctx.moveTo(-7,-12);ctx.lineTo(0,-4);ctx.lineTo(7,-12);ctx.fill();
-    ellipse(-4,-19,1.5,1.5,'#f4fff2');ellipse(4,-19,1.5,1.5,'#f4fff2');
-    ctx.lineWidth=2;ellipse(0,-38,15,5,null,accent);
-    if(form==='light'){glow(0,-12,65,'#fff6bf55');for(let i=0;i<8;i++){const a=i*Math.PI/4+time*.2;line([[Math.cos(a)*49,Math.sin(a)*49],[Math.cos(a)*58,Math.sin(a)*58]],'#fff4bc77',1);}}
-  }else if(outfit==='space')ellipse(0,-19,13,14,'#304b6699',accent);
-  else if(outfit==='stealth'){ctx.fillStyle='#172c3d';ctx.fillRect(-9,-18,18,10);line([[-7,-19],[7,-19]],accent,2);}
-  else{ctx.fillStyle=accent;ctx.beginPath();ctx.moveTo(-12,-21);ctx.lineTo(-8,-33);ctx.lineTo(0,-29);ctx.lineTo(8,-33);ctx.lineTo(12,-21);ctx.closePath();ctx.fill();}
+  const accent=look.accentColor||'#e2c17d';
+  if(form==='gold'){const gradient=ctx.createLinearGradient(-18,-10,22,28);gradient.addColorStop(0,'#fff1ad');gradient.addColorStop(.35,'#9a6d24');gradient.addColorStop(.6,'#edc468');gradient.addColorStop(1,'#ffe7a5');body=gradient;}
+  if(type==='demon'||type==='dragonborn')for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*12,3);ctx.lineTo(side*44,-26);ctx.lineTo(side*37,10);ctx.lineTo(side*25,7);ctx.lineTo(side*17,19);ctx.closePath();ctx.fillStyle=type==='demon'?'#8e536b99':accent+'88';ctx.fill();ctx.strokeStyle=accent;ctx.lineWidth=1;ctx.stroke();}
+  drawCharacterBody(ctx,look,time,body,accent);
   if(weapon==='blade'||weapon==='dual'){
     for(const side of weapon==='dual'?[-1,1]:[1]){line([[side*20,10],[side*25,-41]],'#e8eef1',4);line([[side*15,-8],[side*31,-8]],accent,3);}
     if(weapon==='blade'&&!owner)ellipse(-21,0,8,13,accent,'#f4e3a1');
@@ -737,7 +854,7 @@ function drawPlayer(time, p = game.player) {
   else{line([[23,20],[23,-42]],accent,4);ellipse(23,-44,8,8,color);glow(23,-44,22,color+'55');}
   if(p.blocking){ctx.beginPath();ctx.arc(0,0,52,-Math.PI*.89,-Math.PI*.11);ctx.strokeStyle='#a3fae2';ctx.lineWidth=4;ctx.stroke();}
   ctx.restore();
-  if((online||game.competitive)&&p.name){ctx.fillStyle=p.hp>0?'#e0f0e5':'#be9ba5';ctx.textAlign='center';ctx.font='12px sans-serif';ctx.fillText((form==='mimic'&&p.disguise?p.disguise.name:p.name)+(p.hp<=0?game.competitive?' · Returning…':' · Fallen':''),p.x,p.y+57);}
+  if(!preview&&(online||game.competitive)&&p.name){ctx.fillStyle=p.hp>0?'#e0f0e5':'#be9ba5';ctx.textAlign='center';ctx.font='12px sans-serif';ctx.fillText((form==='mimic'&&p.disguise?p.disguise.name:p.name)+(p.hp<=0?game.competitive?' · Returning…':' · Fallen':''),p.x,p.y+57);}
 }
 function drawEnemy(enemy,time) {
   const {x,y,r}=enemy;
@@ -822,7 +939,7 @@ function frame(now) {
     if(game.status!=='playing')finishRun();
   }
   hudTime+=dt;if(hudTime>.08){updateHud();hudTime=0;}
-  render(now);requestAnimationFrame(frame);
+  render(now);paintCharacterPreview(now);requestAnimationFrame(frame);
 }
 $('pause').disabled=true;
 updateCareer();updateHud();resize();requestAnimationFrame(frame);

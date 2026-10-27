@@ -28,7 +28,9 @@ Competitive players respawn after three seconds; team modes disable friendly fir
 
 ## Characters, weapons, and forms
 
-The workshop offers six original weapon types (blade, dual blades, rifle, bow, staff, fists), six human outfit styles, and custom primary/accent colors. Weapons affect actual attacks; each character class retains its special. This is an expandable starter catalog, not every character or weapon from existing games.
+Humans are the default playable characters. The character creator offers 25 original archetypes: human, angel, superhero, knight, samurai, ninja, pirate, ranger, mage, vampire, elf, dwarf, orc, demon, dragonborn, beast, fox, cat, robot, cyborg, alien, skeleton, ghost, slime, and elemental. Choose a custom character title, skin and hair colors, five hairstyles, and three body builds, with a live portrait preview. The roster is expandable; it does not contain every existing game character.
+
+Combine those appearances with six original weapon types (blade, dual blades, rifle, bow, staff, fists), six outfit styles, and custom primary/accent colors. Appearance is cosmetic and independent of combat class: a human and a dragonborn with the same class and weapon have the same stats. Weapons affect actual attacks; each combat class retains its special. Character choices persist locally and travel with each player's admitted multiplayer loadout. Disguises and echoes carry the full chosen appearance.
 
 The host's fictional Creator role has unlimited radiance and damage immunity. T cycles Light, Water, Fire, Liquid Gold, Superhero, Smoke, and Cloud. Materials have distinct movement/combat traits: smoke phases through pillars, cloud heals nearby teammates, fire burns nearby opponents, gold accelerates nearby gate machinery, and the superhero moves/dashes faster.
 
@@ -69,6 +71,6 @@ node scripts/build-preview.mjs
 git diff --check
 ```
 
-70 automated tests cover the simulation, all modes, actual AI practice matches, input mapping, Node room transport, Creator-lab packets, and Cloudy. Browser checks cover human-only two-client rosters, actual combat, forms, invisibility, echoes/merging, disguises, touch practice, loading-byte/checksum flow, and media metadata. A managed-browser network restriction is not counted as a passing public WebRTC test.
+75 automated tests cover the simulation, all modes, actual AI practice matches, input mapping, Node room transport, Creator-lab packets, character validation and cosmetic balance, the peer-room protocol over an in-memory channel, and Cloudy. Browser checks cover human-only two-client rosters, actual combat, forms, invisibility, echoes/merging, disguises, touch practice, loading-byte/checksum flow, and media metadata. A managed-browser network restriction is not counted as a passing public WebRTC test.
 
-The user requested a 9:05 AM New York release on October 27, 2026. `.github/scripts/wait-for-publish.py` gates deployment until `2026-10-27T13:05:00Z` after the artifact is uploaded. Workflow inputs can override the UTC target within four hours. No fake three-hour transfer is shown. Future pushes after the target deploy immediately. GitHub/CDN propagation may finish shortly after the target.
+The October 27, 2026 release deployed at 9:05 AM New York time. `.github/scripts/wait-for-publish.py` retains that one-time target (`2026-10-27T13:05:00Z`); later pushes deploy immediately. Workflow inputs can override the UTC target within four hours. No fake three-hour transfer is shown. GitHub/CDN propagation may finish shortly after a deployment.

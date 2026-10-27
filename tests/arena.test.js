@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, updateGame, createCoopGame, updateCoopGame, getForm, CLASSES, FORMS, MODES, CONTRACTS, WEAPONS, OUTFITS } from '../public/arena/core.mjs';
+import { createGame, updateGame, createCoopGame, updateCoopGame, getForm, CLASSES, FORMS, MODES, CONTRACTS, WEAPONS, OUTFITS, CHARACTERS, HAIR_STYLES, BODY_TYPES, characterAppearance } from '../public/arena/core.mjs';
 
 const quiet = options => { const g = createGame(options); g.enemies = []; g.waveTimer = 1000; return g; };
 const step = (g, seconds, input = {}) => { for (let t = 0; t < seconds; t += .025) updateGame(g, .025, input); };
@@ -739,4 +739,71 @@ test('online competitive games preserve only the human roster when bot filling i
     assert.deepEqual(g.players.map(player => [player.x, player.y]), positions);
     assert.equal(g.time, .05);
   }
+});
+
+test('the character roster defaults to humans and canonical appearance contains only supported visual fields', () => {
+  assert.equal(Object.keys(CHARACTERS).length, 25);
+  assert.deepEqual(Object.keys(HAIR_STYLES), ['short', 'long', 'braids', 'shaved', 'mohawk']);
+  assert.deepEqual(Object.keys(BODY_TYPES), ['slim', 'athletic', 'broad']);
+  const defaults = { characterId: 'human', characterName: '', skinTone: '#c98a62', hairStyle: 'short', hairColor: '#2b1c18', bodyType: 'athletic' };
+  assert.deepEqual(characterAppearance(), defaults);
+  assert.deepEqual(characterAppearance(null), defaults);
+  assert.deepEqual(characterAppearance({ characterId: '__proto__', hairStyle: 'constructor', bodyType: {}, skinTone: '#123', hairColor: 'url(secret)', characterName: 25, hp: Infinity }), defaults);
+  const sanitized = characterAppearance({ characterId: 'elf', characterName: '\u0000  Moon   Wanderer\u0085 ', hairStyle: 'long', skinTone: '#AABBCC', hairColor: '#112233', bodyType: 'slim', damage: 90000, classId: 'creator' });
+  assert.deepEqual(sanitized, { characterId: 'elf', characterName: 'Moon Wanderer', skinTone: '#aabbcc', hairStyle: 'long', hairColor: '#112233', bodyType: 'slim' });
+  assert.equal(createGame().player.characterId, 'human');
+  assert.equal(createGame().player.name, 'Your Champion');
+});
+
+test('strict network appearance rejects malformed customization instead of silently admitting it', () => {
+  for (const invalid of [null, [], { characterId: 'missing' }, { characterId: '__proto__' }, { hairStyle: 'url(secret)' }, { bodyType: 'giant' }, { skinTone: 'red' }, { hairColor: 123 }, { characterName: 'x'.repeat(33) }, { characterName: 'bad\u0000name' }, { characterName: {} }]) {
+    assert.throws(() => characterAppearance(invalid, true), TypeError);
+  }
+  assert.deepEqual(characterAppearance(undefined, true), characterAppearance());
+  const selected = { characterId: 'fox', characterName: 'Dune Scout', skinTone: '#DDAA77', hairStyle: 'braids', hairColor: '#332211', bodyType: 'broad' };
+  assert.deepEqual(characterAppearance(selected, true), { ...selected, skinTone: '#ddaa77' });
+});
+
+test('every character archetype remains cosmetic and cannot forge combat powers or collision scale', () => {
+  for (const characterId of Object.keys(CHARACTERS)) {
+    const baseline = quiet({ realm: 'fields', classId: 'guardian' });
+    const selected = quiet({ realm: 'fields', classId: 'guardian', characterId, bodyType: 'broad', hp: 999999, speed: 999999, damage: 999999, scale: 100 });
+    assert.equal(selected.player.characterId, characterId);
+    assert.equal(selected.player.hp, baseline.player.hp);
+    assert.equal(selected.player.r, baseline.player.r);
+    assert.equal(selected.player.scale, 1);
+    for (const game of [baseline, selected]) {
+      updateGame(game, .05, { moveX: 1 });
+      game.enemies = [foe(game.player.x + 60, game.player.y, 1000)];
+      updateGame(game, .01, { attack: true, aimX: 1000, aimY: game.player.y });
+    }
+    assert.equal(selected.player.x, baseline.player.x);
+    assert.equal(selected.enemies[0].hp, baseline.enemies[0].hp);
+    assert.equal(selected.player.energy, baseline.player.energy);
+  }
+});
+
+test('co-op preserves independent character appearances and Creator disguise and echoes carry their visuals', () => {
+  const ownerLook = { characterId: 'human', characterName: 'Amun', skinTone: '#6b3e26', hairStyle: 'braids', hairColor: '#111111', bodyType: 'broad' };
+  const guestLook = { characterId: 'cat', characterName: 'Moon Scout', skinTone: '#e1b188', hairStyle: 'shaved', hairColor: '#ffddcc', bodyType: 'slim' };
+  const g = createCoopGame({ realm: 'fields', fillBots: false }, [
+    { id: 'owner', classId: 'creator', ...ownerLook },
+    { id: 'guest', classId: 'guardian', ...guestLook },
+  ]);
+  g.enemies = []; g.waveTimer = 1000;
+  const [owner, guest] = g.players;
+  assert.deepEqual(characterAppearance(owner), ownerLook);
+  assert.deepEqual(characterAppearance(guest), guestLook);
+  updateCoopGame(g, .01, { owner: { mimic: true } });
+  assert.deepEqual(characterAppearance(owner.disguise), guestLook);
+  assert.deepEqual(characterAppearance(owner), ownerLook, 'disguise does not replace the owner appearance or real identity');
+  assert.equal(owner.id, 'owner'); assert.equal(owner.classId, 'creator');
+  updateCoopGame(g, .01, { owner: { clone: true } });
+  const echo = g.echoes[0];
+  assert.deepEqual(characterAppearance(echo), ownerLook);
+  assert.deepEqual(characterAppearance(echo.disguise), guestLook);
+  assert.notEqual(echo.disguise, owner.disguise);
+  owner.disguise.characterName = 'Changed';
+  assert.equal(echo.disguise.characterName, 'Moon Scout');
+  assert.deepEqual(characterAppearance(guest), guestLook);
 });

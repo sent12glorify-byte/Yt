@@ -31,12 +31,48 @@ export const OUTFITS = {
   royal: { name: 'Royal Regalia' }, battle: { name: 'Battle Armor' }, traveler: { name: 'Traveler' },
   stealth: { name: 'Shadow Suit' }, space: { name: 'Star Suit' }, robe: { name: 'Celestial Robe' },
 };
+// Original visual archetypes are independent of combat class and weapon choice.
+// Appearance never grants health, speed, damage, or a different collision radius.
+export const CHARACTERS = {
+  human: { name: 'Human', category: 'Human', silhouette: 'human' },
+  angel: { name: 'Sky Angel', category: 'Mythic', silhouette: 'angel' },
+  superhero: { name: 'Solar Hero', category: 'Human', silhouette: 'superhero' },
+  knight: { name: 'Iron Knight', category: 'Human', silhouette: 'knight' },
+  samurai: { name: 'Dawn Samurai', category: 'Human', silhouette: 'samurai' },
+  ninja: { name: 'Shadow Ninja', category: 'Human', silhouette: 'ninja' },
+  pirate: { name: 'Sky Pirate', category: 'Human', silhouette: 'pirate' },
+  ranger: { name: 'Wild Ranger', category: 'Human', silhouette: 'ranger' },
+  mage: { name: 'Star Mage', category: 'Human', silhouette: 'mage' },
+  vampire: { name: 'Night Noble', category: 'Fantasy', silhouette: 'vampire' },
+  elf: { name: 'Moon Elf', category: 'Fantasy', silhouette: 'elf' },
+  dwarf: { name: 'Forge Dwarf', category: 'Fantasy', silhouette: 'dwarf' },
+  orc: { name: 'Verdant Orc', category: 'Fantasy', silhouette: 'orc' },
+  demon: { name: 'Ember Demon', category: 'Mythic', silhouette: 'demon' },
+  dragonborn: { name: 'Drake Guardian', category: 'Mythic', silhouette: 'dragonborn' },
+  beast: { name: 'Wild Beast', category: 'Creature', silhouette: 'beast' },
+  fox: { name: 'Dune Fox', category: 'Creature', silhouette: 'fox' },
+  cat: { name: 'Temple Cat', category: 'Creature', silhouette: 'cat' },
+  robot: { name: 'Orbit Automaton', category: 'Sci-fi', silhouette: 'robot' },
+  cyborg: { name: 'Neon Cyborg', category: 'Sci-fi', silhouette: 'cyborg' },
+  alien: { name: 'Nova Visitor', category: 'Sci-fi', silhouette: 'alien' },
+  skeleton: { name: 'Bone Wanderer', category: 'Fantasy', silhouette: 'skeleton' },
+  ghost: { name: 'Mist Spirit', category: 'Mythic', silhouette: 'ghost' },
+  slime: { name: 'Prism Slime', category: 'Creature', silhouette: 'slime' },
+  elemental: { name: 'Living Element', category: 'Mythic', silhouette: 'elemental' },
+};
+export const HAIR_STYLES = {
+  short: { name: 'Short' }, long: { name: 'Long' }, braids: { name: 'Braids' },
+  shaved: { name: 'Shaved' }, mohawk: { name: 'Mohawk' },
+};
+export const BODY_TYPES = {
+  slim: { name: 'Slim' }, athletic: { name: 'Athletic' }, broad: { name: 'Broad' },
+};
 export const MODES = {
   survival: { name: 'Gatekeeper', description: 'Protect the gates through five waves.', target: 5 },
   relic: { name: 'Relic Run', description: 'Recover twelve sacred relics from the shades.', target: 12 },
   trial: { name: 'Solar Trial', description: 'Earn 1,000 glory before ninety seconds expire.', target: 1000 },
   ctf: { name: 'Capture the Flag', description: 'Return the opposing flag while yours is home. First to three captures wins.', target: 3 },
-  ffa: { name: 'Free for All', description: 'Every angel for themselves. First to ten defeats or the two-minute leader wins.', target: 10 },
+  ffa: { name: 'Free for All', description: 'Every champion for themselves. First to ten defeats or the two-minute leader wins.', target: 10 },
   warzone: { name: 'Team Warzone', description: 'Control the central circle. First team to thirty points wins.', target: 30 },
 };
 export const REALMS = {
@@ -60,6 +96,27 @@ const upgradeLevel = n => clamp(Math.floor(Number(n) || 0), 0, 3);
 const competitiveMode = mode => ['ctf', 'ffa', 'warzone'].includes(mode);
 const defaultWeapon = classId => ({ guardian: 'blade', sunbow: 'bow', stormcaller: 'staff', marksman: 'rifle', brawler: 'fists', creator: 'blade' })[classId];
 const hexColor = (value, fallback) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback;
+export function characterAppearance(value = {}, strict = false) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    if (strict) throw new TypeError('Choose a valid character appearance.');
+    value = {};
+  }
+  const choices = { characterId: [CHARACTERS, 'human'], hairStyle: [HAIR_STYLES, 'short'], bodyType: [BODY_TYPES, 'athletic'] };
+  const result = {};
+  for (const [key, [allowed, fallback]] of Object.entries(choices)) {
+    const supplied = value[key];
+    if (strict && supplied !== undefined && (typeof supplied !== 'string' || !Object.hasOwn(allowed, supplied))) throw new TypeError('Choose a supported character, hairstyle, and body type.');
+    result[key] = typeof supplied === 'string' && Object.hasOwn(allowed, supplied) ? supplied : fallback;
+  }
+  for (const [key, fallback] of [['skinTone', '#c98a62'], ['hairColor', '#2b1c18']]) {
+    if (strict && value[key] !== undefined && (typeof value[key] !== 'string' || !/^#[0-9a-f]{6}$/i.test(value[key]))) throw new TypeError('Choose six-digit hex colors for skin and hair.');
+    result[key] = hexColor(value[key], fallback);
+  }
+  const suppliedName = value.characterName;
+  if (strict && suppliedName !== undefined && (typeof suppliedName !== 'string' || suppliedName.length > 32 || /[\u0000-\u001f\u007f-\u009f]/.test(suppliedName))) throw new TypeError('Use a character name of at most 32 characters without control characters.');
+  result.characterName = typeof suppliedName === 'string' ? suppliedName.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim().replace(/\s+/g, ' ').slice(0, 32) : '';
+  return result;
+}
 const actors = g => [...(g.players || [g.player]), ...(g.echoes || [])];
 const livingActors = g => actors(g).filter(p => p.hp > 0);
 const opponents = (g, owner, target) => owner !== target && (owner.isEcho ? owner.ownerId : owner.id) !== (target.isEcho ? target.ownerId : target.id) && (g.mode === 'ffa' || owner.team !== target.team);
@@ -137,14 +194,15 @@ function createBaseGame(options = {}) {
   const weaponId = Object.hasOwn(WEAPONS, options.weaponId) ? options.weaponId : defaultWeapon(classId);
   const columns = realm === 'fields' ? [] : realm === 'sands' ? [[245, 215], [895, 525], [535, 115], [635, 615]] : [[270, 205], [870, 205], [270, 545], [870, 545]];
   const g = { width: 1200, height: 800, classId, mode, realm, upgrades, seed: (Number(options.seed) || 1) >>> 0, fillBots: options.fillBots !== false,
-    player: { id: 'player-1', name: 'Your Angel', x: 600, y: 440, r: 17, hp: maxHp, maxHp, energy: maxEnergy, maxEnergy, facing: -Math.PI / 2,
+    player: { id: 'player-1', name: 'Your Champion', x: 600, y: 440, r: 17, hp: maxHp, maxHp, energy: maxEnergy, maxEnergy, facing: -Math.PI / 2,
       attackCooldown: 0, dashCooldown: 0, specialCooldown: 0, dashTime: 0, dashX: 0, dashY: 0, invulnerable: 1.5, hitFlash: 0,
       crouching: false, blocking: false, aiming: false, jumpTime: 0, jumpCooldown: 0, jumpHeld: false,
       ammo: weaponId === 'rifle' ? 5 : 0, maxAmmo: weaponId === 'rifle' ? 5 : 0, reloadTime: 0, combo: 0, comboTime: 0, interactHeld: false,
       form: classId === 'creator' ? 'light' : null, morphHeld: false, formCooldown: 0, mimicHeld: false, disguise: null,
       customForm: null, scale: 1, invisible: false, invisibleHeld: false, cloneHeld: false, mergeHeld: false,
       classId, upgrades: { ...upgrades }, weaponId, outfit: Object.hasOwn(OUTFITS, options.outfit) ? options.outfit : 'royal',
-      primaryColor: hexColor(options.primaryColor, CLASSES[classId].color), accentColor: hexColor(options.accentColor, '#f5cd74') },
+      primaryColor: hexColor(options.primaryColor, CLASSES[classId].color), accentColor: hexColor(options.accentColor, '#f5cd74'),
+      ...characterAppearance(options) },
     enemies: [], projectiles: [], particles: [], effects: [], pickups: [], echoes: [], echoesCreated: 0,
     obstacles: columns.map(([x, y]) => ({ x, y, w: 60, h: 60 })),
     hazards: realm === 'citadel' || realm === 'fields' ? [] : [{ x: 470, y: 340, r: 52, active: false, phase: 0 }, { x: 730, y: 460, r: 52, active: false, phase: 3 }],
@@ -158,7 +216,7 @@ function createBaseGame(options = {}) {
 export function createGame(options = {}) {
   const g = createBaseGame(options);
   if (competitiveMode(g.mode)) {
-    g.player.id = 'player-1'; g.player.name = String(options.name || 'Your Angel').slice(0, 32);
+    g.player.id = 'player-1'; g.player.name = String(options.name || 'Your Champion').slice(0, 32);
     g.players = [g.player];
     initializeCompetition(g);
   }
@@ -166,7 +224,7 @@ export function createGame(options = {}) {
 }
 export function createCoopGame(options = {}, roster = []) {
   if (!Array.isArray(roster) || roster.length > 8) throw new RangeError('A cooperative roster must contain at most eight players.');
-  if (roster.length === 0) roster = [{ ...options, id: 'player-1', name: options.name || 'Angel' }];
+  if (roster.length === 0) roster = [{ ...options, id: 'player-1', name: options.name || 'Champion' }];
   const ids = new Set();
   for (const entry of roster) {
     if (!entry || typeof entry.id !== 'string' || !entry.id.trim() || ids.has(entry.id)) throw new TypeError('Each cooperative player needs a unique nonempty string id.');
@@ -177,7 +235,7 @@ export function createCoopGame(options = {}, roster = []) {
     const source = index === 0 ? g : createBaseGame({ ...options, ...entry, classId: entry.classId, upgrades: entry.upgrades });
     const player = source.player;
     player.id = entry.id;
-    player.name = String(entry.name || `Angel ${index + 1}`).slice(0, 32);
+    player.name = String(entry.name || `Champion ${index + 1}`).slice(0, 32);
     player.classId = source.classId;
     player.upgrades = { ...source.upgrades };
     if (roster.length > 1) {
@@ -477,7 +535,7 @@ function updatePlayer(g, dt, input) {
     const target = livingActors(g).filter(actor => actor !== p).sort((a, b) => distance(p, a) - distance(p, b))[0];
     if (target) {
       p.form = 'mimic'; p.formCooldown = .3;
-      p.disguise = Object.fromEntries(['classId', 'weaponId', 'outfit', 'primaryColor', 'accentColor', 'team', 'name'].map(key => [key, target[key]]));
+      p.disguise = Object.fromEntries(['classId', 'weaponId', 'outfit', 'primaryColor', 'accentColor', 'team', 'name', 'characterId', 'characterName', 'skinTone', 'hairStyle', 'hairColor', 'bodyType'].map(key => [key, target[key]]));
       effect(g, p.x, p.y, 75, 'morph', p.facing, target.primaryColor);
       particles(g, p.x, p.y, target.primaryColor, 28);
       g.message = `Borrowed appearance · ${target.name} · your identity and team stay unchanged`;

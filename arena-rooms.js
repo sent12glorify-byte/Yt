@@ -1,6 +1,6 @@
 import express from 'express';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { CLASSES, MODES, REALMS, CONTRACTS, createCoopGame, updateCoopGame } from './public/arena/core.mjs';
+import { CLASSES, MODES, REALMS, CONTRACTS, characterAppearance, createCoopGame, updateCoopGame } from './public/arena/core.mjs';
 
 // Ephemeral, server-authoritative co-op rooms. No account or paid service is used.
 // Rooms intentionally live on one Node instance; restarting it ends active rooms.
@@ -40,7 +40,8 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
   }
   const validChoice = (map, value, fallback) => value === undefined ? fallback : typeof value === 'string' && Object.hasOwn(map, value) ? value : null;
   function appearanceFrom(body) {
-    const appearance = {};
+    let appearance;
+    try { appearance = characterAppearance(body, true); } catch { return null; }
     for (const [key, allowed] of [['weaponId', ['blade', 'bow', 'staff', 'rifle', 'fists', 'dual']], ['outfit', ['royal', 'battle', 'traveler', 'stealth', 'space', 'robe']]]) {
       if (body?.[key] === undefined) continue;
       if (typeof body[key] !== 'string' || !allowed.includes(body[key])) return null;
@@ -53,7 +54,7 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
     }
     return appearance;
   }
-  const rosterEntry = ({ id, name, classId, weaponId, outfit, primaryColor, accentColor }) => ({ id, name, classId, weaponId, outfit, primaryColor, accentColor });
+  const rosterEntry = ({ id, name, classId, weaponId, outfit, primaryColor, accentColor, characterId, characterName, skinTone, hairStyle, hairColor, bodyType }) => ({ id, name, classId, weaponId, outfit, primaryColor, accentColor, characterId, characterName, skinTone, hairStyle, hairColor, bodyType });
   function publicLobby(room) {
     return {
       roomId: room.id, phase: room.phase, hostId: room.hostId, capacity,
@@ -144,7 +145,7 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
     const contractId = validChoice(CONTRACTS, body.contractId, 'hunter');
     if (!name || !classId || !mode || !realm || !contractId) return fail(res, 400, 'Choose a valid name, class, mission, realm, and contract.');
     const appearance = appearanceFrom(body);
-    if (!appearance) return fail(res, 400, 'Choose a valid weapon, outfit, and six-digit hex colors.');
+    if (!appearance) return fail(res, 400, 'Choose a valid character, appearance, weapon, outfit, and six-digit hex colors.');
     let id;
     do { id = [...randomBytes(6)].map(byte => alphabet[byte % alphabet.length]).join(''); } while (rooms.has(id));
     const player = newPlayer(name, classId, appearance);
@@ -166,7 +167,7 @@ export function createArenaRoomsRouter({ tickMs = 50, maxRooms = 64, capacity = 
     if (!name || !classId) return fail(res, 400, 'Choose a valid name and combat class.');
     if (classId === 'creator') return fail(res, 403, 'The Creator is reserved for the room owner. Choose a guardian class to join.');
     const appearance = appearanceFrom(req.body);
-    if (!appearance) return fail(res, 400, 'Choose a valid weapon, outfit, and six-digit hex colors.');
+    if (!appearance) return fail(res, 400, 'Choose a valid character, appearance, weapon, outfit, and six-digit hex colors.');
     const player = newPlayer(name, classId, appearance);
     room.players.set(player.id, player); room.lastActivity = Date.now();
     broadcast(room);

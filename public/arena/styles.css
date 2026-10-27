@@ -200,3 +200,17 @@ body.in-game .arena-coordinate{opacity:.5}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 .creator-lab{padding:14px;border-radius:4px;font-size:10px}.creator-lab summary{color:var(--gold-light);cursor:pointer}.creator-lab p{font-size:9px;color:var(--muted);line-height:1.6}.creator-lab label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:9px 0}.creator-lab input,.creator-lab select{max-width:115px;min-width:0;background:#142b36;color:#eee1be;border:1px solid #9a997644;border-radius:3px;padding:5px;font-size:10px}.creator-lab button{width:100%;margin:4px 0;font-size:9px}.creator-lab input[type=color]{width:48px;padding:0;height:25px}#scoreboard-list{padding-left:15px;font-size:10px;line-height:1.8}#scoreboard{padding:15px;font-size:11px;color:var(--gold-light)}
+
+/* The roster is visible before multiplayer setup; detailed controls stay optional. */
+.character-picker{display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;padding:12px 10px;margin:0 0 20px;border:1px solid #8ad4c44a;border-radius:5px;background:radial-gradient(ellipse at 12% 55%,#36524b66,#0a1c28cc 75%)}
+.character-portrait{display:flex;align-items:center;justify-content:center;min-height:145px;overflow:hidden;border-radius:4px;background:linear-gradient(180deg,#92d6c60a,#d3b57908);border:1px solid #d3b57916}
+#character-preview{width:110px;height:auto;display:block;max-width:100%}
+.character-picker-controls{display:flex;flex-direction:column;justify-content:center;gap:7px;min-width:0}
+.character-picker h2{font:400 14px/1.3 Georgia,serif;color:var(--gold-light);margin:0 0 2px}
+#character-preview-name{font-size:10px;font-weight:500;color:#d6e4d6;overflow-wrap:anywhere}
+#character-roster-note{font-size:7px;line-height:1.4;color:#8fa9a9}
+#edit-character{font-size:8px;padding:6px 4px;min-height:30px}
+.workshop-field input[type=text]{font:inherit;font-size:10px;color:#e3dfcc;border:1px solid #d3b57940;background:#0a1b24;border-radius:3px;padding:9px 7px;width:100%;min-height:34px}
+.workshop-field input[type=text]:focus-visible{outline:2px solid var(--aqua);outline-offset:2px}
+.workshop-wide{grid-column:1/-1}
+@media(max-width:620px){.character-picker{grid-template-columns:100px minmax(0,1fr);padding:11px;gap:12px}.character-portrait{min-height:140px}#character-preview{width:100px}.character-picker h2{font-size:14px}.character-picker-controls .workshop-field{font-size:9px}.character-picker-controls select{font-size:11px;min-height:37px}#character-preview-name{font-size:11px}#edit-character{font-size:9px}}
